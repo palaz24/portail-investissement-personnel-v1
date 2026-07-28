@@ -1,0 +1,114 @@
+{
+  "version": "1.0.0",
+  "demoMode": true,
+  "createdAt": "2026-07-28T12:00:00.000Z",
+  "updatedAt": "2026-07-28T12:00:00.000Z",
+  "accountSettings": {
+    "accountName": "Compte sur marge — démonstration",
+    "baseCurrency": "USD",
+    "marginInterestRate": 8,
+    "stockCommission": 0,
+    "optionCommission": 0,
+    "assignmentFee": 0
+  },
+  "securities": [
+    {
+      "id": "SEC-F",
+      "symbol": "F",
+      "name": "Ford Motor Company",
+      "type": "ACTION",
+      "currency": "USD",
+      "marginEligible": true,
+      "marginRequirement": 0.3,
+      "active": true
+    },
+    {
+      "id": "SEC-SPY",
+      "symbol": "SPY",
+      "name": "SPDR S&P 500 ETF Trust",
+      "type": "FNB",
+      "currency": "USD",
+      "marginEligible": true,
+      "marginRequirement": 0.3,
+      "active": true
+    }
+  ],
+  "transactions": [
+    {
+      "id": "DEMO-TX-001",
+      "date": "2026-07-01",
+      "type": "DEPOSIT",
+      "amount": 3000,
+      "note": "Dépôt initial fictif"
+    },
+    {
+      "id": "DEMO-TX-002",
+      "date": "2026-07-02",
+      "symbol": "F",
+      "type": "STOCK_BUY",
+      "quantity": 100,
+      "price": 10,
+      "fees": 0,
+      "note": "Achat fictif de Ford"
+    },
+    {
+      "id": "DEMO-TX-003",
+      "date": "2026-07-03",
+      "symbol": "F",
+      "type": "OPTION_SELL_OPEN",
+      "optionType": "CALL",
+      "strike": 12,
+      "expiration": "2026-12-18",
+      "contracts": 1,
+      "premium": 0.35,
+      "fees": 0,
+      "shortMarginRequirement": 150,
+      "contractId": "DEMO-F-CALL-20261218-12-001",
+      "note": "Call Ford fictif"
+    },
+    {
+      "id": "DEMO-TX-004",
+      "date": "2026-07-10",
+      "symbol": "F",
+      "type": "DIVIDEND",
+      "grossAmount": 15,
+      "taxWithheld": 2.25,
+      "note": "Dividende Ford fictif"
+    },
+    {
+      "id": "DEMO-TX-005",
+      "date": "2026-07-15",
+      "symbol": "SPY",
+      "type": "STOCK_BUY",
+      "quantity": 2,
+      "price": 500,
+      "fees": 0,
+      "note": "Petite position SPY fictive"
+    }
+  ],
+  "prices": {
+    "F": {
+      "price": 11.25,
+      "updatedAt": "2026-07-28T12:00:00.000Z"
+    },
+    "SPY": {
+      "price": 510,
+      "updatedAt": "2026-07-28T12:00:00.000Z"
+    }
+  },
+  "optionPrices": {
+    "DEMO-F-CALL-20261218-12-001": {
+      "price": 0.2,
+      "updatedAt": "2026-07-28T12:00:00.000Z"
+    }
+  },
+  "positionsInitiales": [],
+  "history": [
+    {
+      "id": "HIST-DEMO-001",
+      "at": "2026-07-28T12:00:00.000Z",
+      "action": "DEMO_CREATED",
+      "note": "Données fictives fournies avec le portail."
+    }
+  ]
+}

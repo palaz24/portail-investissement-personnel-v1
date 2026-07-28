@@ -1,0 +1,16 @@
+# Données financières privées
+Portail_Investissement_Sauvegarde_*.json
+*.pivault
+*.csv
+*.xlsx
+*.xlsm
+private/
+backups/
+
+# Protections supplémentaires pour les sauvegardes locales
+SECOURS_AVANT_RESTAURATION_*.json
+*.private.json
+
+# Fichiers système
+.DS_Store
+Thumbs.db

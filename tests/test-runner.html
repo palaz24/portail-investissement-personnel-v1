@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="fr-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tests — Portail d’investissement</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    body { padding: 28px; }
+    .test-shell { width: min(1200px, 100%); margin: 0 auto; }
+    .summary { margin: 18px 0; padding: 16px; border-radius: 12px; font-weight: 800; }
+    .summary.passed { background: var(--positive-soft); color: var(--positive); }
+    .summary.failed { background: var(--negative-soft); color: var(--negative); }
+    tr.passed td:first-child { color: var(--positive); }
+    tr.failed td:first-child { color: var(--negative); }
+  </style>
+</head>
+<body>
+  <main class="test-shell">
+    <p class="eyebrow">QUALITÉ</p>
+    <h1>Tests du Portail d’investissement personnel</h1>
+    <div id="testSummary" class="summary">Tests en cours…</div>
+    <article class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>État</th><th>Test et résultat attendu</th><th>Attendu</th><th>Obtenu</th></tr></thead>
+          <tbody id="testResults"></tbody>
+        </table>
+      </div>
+    </article>
+  </main>
+  <script src="../js/calculations.js"></script>
+  <script src="../js/storage.js"></script>
+  <script src="../js/forms.js"></script>
+  <script src="../js/backup.js"></script>
+  <script src="calculations.test.js"></script>
+</body>
+</html>
