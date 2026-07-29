@@ -1,4 +1,4 @@
-# Portail d’investissement personnel V1.2.0
+# Portail d’investissement personnel V1.2.1
 
 Ce site permet de suivre un petit portefeuille dans un compte sur marge avec des prix automatiques sécurisés et une saisie manuelle de secours.
 
@@ -48,8 +48,11 @@ Lorsque vous choisissez **Vente d’option à l’ouverture**, puis **PUT**, le 
 
 - **Put garanti à 100 %** : le portail réserve le strike × 100 × le nombre de contrats;
 - **Put sur marge — garantie partielle** : le portail estime la garantie avec le taux du titre.
+- **Put couvert par une option achetée** : le portail réserve un put long admissible du même titre et empêche qu’il soit utilisé au-delà de sa quantité disponible.
 
 Vous pouvez inscrire facultativement la garantie réelle affichée par Wealthsimple et sa date de vérification. Le portail indique toujours clairement si le montant utilisé est réel ou estimé.
+
+Pour une couverture par option, le put acheté doit être encore ouvert et expirer à la même date ou plus tard. Le portail reconnaît les spreads verticaux, calendriers et diagonaux. Il exige que tous les contrats d’une transaction soient couverts et bloque la fermeture ou la suppression d’un put long tant qu’il protège un put vendu.
 
 La prime reçue demeure séparée de la garantie. Une fermeture partielle libère seulement la portion fermée. Une expiration libère toute la portion expirée. Une assignation remplace la garantie du put par celle des actions acquises, sans double comptabilisation.
 
@@ -93,6 +96,8 @@ La gratuité ou le délai des données dépend du forfait Market Data. Le portai
 ## Tri des historiques
 
 Les opérations et historiques sont affichés de la plus récente à la plus ancienne. En cas d’égalité, le portail utilise l’heure de création, l’identifiant, puis l’ordre d’enregistrement. Les prochaines échéances d’options restent volontairement classées de la plus proche à la plus éloignée.
+
+Dans les listes complètes d’options ouvertes, les échéances futures sont présentées de la plus proche à la plus éloignée. Les options échues non régularisées sont placées ensuite et clairement identifiées. Les longues notes sont abrégées dans les tableaux; le bouton **Voir la note** affiche leur contenu complet sans interpréter de code HTML.
 
 ## Sauvegarder les données
 
@@ -173,14 +178,15 @@ Les tests automatisés se trouvent dans `tests`.
 - `v1-1.test.js` vérifie les symboles OCC, les prix, la confidentialité et le tri.
 - `v1-1-1.test.js` vérifie la modification, la suppression, l’annulation et l’intégrité chronologique.
 - `v1-2.test.js` vérifie les garanties des puts, les fermetures partielles, l’assignation et la migration.
+- `v1-2-1.test.js` vérifie le tri des options, les longues notes et la couverture d’un put vendu par un put acheté.
 - `test-runner.html` affiche les résultats dans le navigateur.
 - `worker-market-prices/tests/worker.test.js` vérifie le Worker, CORS, le cache et la sécurité.
 
 Pour afficher les tests, ouvrez `tests/test-runner.html`.
 
-Résultat local V1.2.0 : **97 anciens tests sur 97 et 25 nouveaux tests sur 25**, soit **122 tests sur 122**.
+Résultat local V1.2.1 : **122 anciens tests sur 122 et 34 nouveaux tests sur 34**, soit **156 tests sur 156**.
 
-## Limites de la V1.2
+## Limites de la V1.2.1
 
 - Les données gratuites Market Data peuvent être retardées.
 - Une connexion Internet et un Worker Cloudflare configuré sont nécessaires aux prix automatiques.
@@ -189,3 +195,4 @@ Résultat local V1.2.0 : **97 anciens tests sur 97 et 25 nouveaux tests sur 25**
 - Les exigences de marge des options courtes sont saisies manuellement.
 - Le portail travaille en dollars US et ne fait pas de conversion automatique de devises.
 - Le portail n’importe pas encore les exports Wealthsimple.
+- Pour un spread calendrier ou diagonal, l’estimation du portail n’est pas une exigence officielle du courtier. Une valeur nulle ou négative exige la garantie réelle Wealthsimple.

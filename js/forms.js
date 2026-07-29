@@ -44,6 +44,23 @@
       && !Number.isNaN(new Date(`${value}T12:00:00`).getTime());
   }
 
+  function validateActualMarginFields(transaction, errors) {
+    const hasActual = transaction.actualMarginRequirement !== ""
+      && transaction.actualMarginRequirement != null;
+    if (hasActual) {
+      const actual = number(transaction.actualMarginRequirement);
+      if (!Number.isFinite(actual) || actual <= 0) {
+        errors.push("La garantie réelle Wealthsimple doit être supérieure à zéro.");
+      }
+      if (!isValidDate(transaction.marginRequirementCheckedAt)) {
+        errors.push("La date de vérification de la garantie réelle est obligatoire.");
+      }
+    } else if (transaction.marginRequirementCheckedAt) {
+      errors.push("Une date de vérification exige un montant de garantie réelle.");
+    }
+    return hasActual;
+  }
+
   function canonicalTransaction(transaction) {
     const ignored = new Set(["id", "createdAt", "updatedAt", "note", "_index"]);
     return Object.keys(transaction)
@@ -73,6 +90,7 @@
 
   function validateOperation(transaction, state, derived, editingId = null) {
     const errors = [];
+    let coverageType = transaction.coverageType || null;
     const type = transaction.type;
     const symbol = String(transaction.symbol || "").trim().toUpperCase();
     if (!TYPE_LABELS[type]) errors.push("Le type d’opération est obligatoire.");
@@ -128,18 +146,51 @@
           if (!Number.isFinite(rate) || rate <= 0 || rate > 1) {
             errors.push("Le taux de marge du titre est manquant ou invalide.");
           }
-          const hasActual = transaction.actualMarginRequirement !== ""
-            && transaction.actualMarginRequirement != null;
-          if (hasActual) {
-            const actual = number(transaction.actualMarginRequirement);
-            if (!Number.isFinite(actual) || actual <= 0) {
-              errors.push("La garantie réelle Wealthsimple doit être supérieure à zéro.");
+          validateActualMarginFields(transaction, errors);
+        }
+        if (transaction.putCollateralMode === Collateral.COVERED_BY_LONG_PUT) {
+          const covering = (derived.openOptions || []).find((item) =>
+            item.contractId === transaction.coveringContractId
+          );
+          if (!transaction.coveringContractId) {
+            errors.push("Choisissez obligatoirement le put acheté utilisé comme couverture.");
+          } else if (!covering) {
+            errors.push("Le put acheté sélectionné est fermé ou introuvable.");
+          } else {
+            if (covering.side !== "LONG" || covering.optionType !== "PUT") {
+              errors.push("La couverture doit être un put acheté encore ouvert.");
             }
-            if (!isValidDate(transaction.marginRequirementCheckedAt)) {
-              errors.push("La date de vérification de la garantie réelle est obligatoire.");
+            if (covering.symbol !== symbol) {
+              errors.push("Le put acheté doit avoir le même symbole que le put vendu.");
             }
-          } else if (transaction.marginRequirementCheckedAt) {
-            errors.push("Une date de vérification exige un montant de garantie réelle.");
+            if (String(covering.expiration || "") < String(transaction.expiration || "")) {
+              errors.push("Le put acheté ne peut pas expirer avant le put vendu.");
+            }
+            if (covering.contractId === transaction.contractId) {
+              errors.push("Le contrat vendu ne peut pas se couvrir lui-même.");
+            }
+            coverageType = Collateral.identifyCoverageType(transaction, covering);
+            if (coverageType === Collateral.REVIEW_REQUIRED) {
+              errors.push("La combinaison ne forme pas un spread vertical, calendrier ou diagonal valide.");
+            }
+            const covered = number(transaction.coveredContracts);
+            const sold = number(transaction.contracts);
+            if (!Number.isInteger(covered) || covered <= 0) {
+              errors.push("Le nombre de contrats couverts doit être un entier supérieur à zéro.");
+            } else if (covered < sold) {
+              errors.push(`Cette transaction vend ${sold} contrats, mais seulement ${covered} sont couverts. Séparez les contrats non couverts dans une autre transaction.`);
+            } else if (covered > sold) {
+              errors.push("Le nombre de contrats couverts ne peut pas dépasser le nombre de contrats vendus.");
+            }
+            const available = Number(covering.longPutContractsAvailable ?? covering.contractsOpen);
+            if (Number.isFinite(covered) && covered > available) {
+              errors.push(`Cette option achetée possède seulement ${Math.max(0, available)} contrat de couverture disponible.`);
+            }
+            const hasActual = validateActualMarginFields(transaction, errors);
+            const collateral = Collateral.calculateCoveredPutCollateral(transaction, covering, sold);
+            if (!hasActual && collateral.source === "REVIEW_REQUIRED") {
+              errors.push("Cette couverture exige une garantie réelle Wealthsimple et sa date de vérification.");
+            }
           }
         }
       } else if (type === "OPTION_SELL_OPEN") {
@@ -160,6 +211,18 @@
         if (type === "OPTION_SELL_CLOSE" && option.side !== "LONG") errors.push("La vente de fermeture exige une option longue.");
         if (type === "OPTION_ASSIGNMENT" && option.side !== "SHORT") errors.push("L’assignation exige une option courte.");
         if (type === "OPTION_EXERCISE" && option.side !== "LONG") errors.push("L’exercice exige une option longue.");
+        if (option.side === "LONG" && option.optionType === "PUT" && Number(option.longPutContractsAllocated) > 0) {
+          const availableToClose = Math.max(
+            0,
+            Number(option.contractsOpen) - Number(option.longPutContractsAllocated)
+          );
+          if (contracts > availableToClose) {
+            const linked = (option.usedAsCoverageOf || [])
+              .map((item) => `${item.contractId} (${item.contracts} contrat(s))`)
+              .join(", ");
+            errors.push(`Ce put acheté est utilisé comme couverture de ${linked || "put(s) vendu(s)"}. Remplacez leur garantie avant de fermer, expirer ou exercer ces contrats.`);
+          }
+        }
         if (type === "OPTION_ASSIGNMENT" && option.optionType === "CALL") {
           const held = derived.securities.find((security) => security.symbol === option.symbol)?.shares || 0;
           const required = contracts * 100;
@@ -182,7 +245,17 @@
       errors.push("Cette transaction est un doublon exact d’une transaction existante.");
     }
 
-    return { valid: errors.length === 0, errors, value: { ...transaction, symbol } };
+    return {
+      valid: errors.length === 0,
+      errors,
+      value: {
+        ...transaction,
+        symbol,
+        coverageType: transaction.putCollateralMode === Collateral.COVERED_BY_LONG_PUT
+          ? coverageType
+          : null
+      }
+    };
   }
 
   function validatePrice(price) {

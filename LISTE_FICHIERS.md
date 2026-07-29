@@ -29,6 +29,7 @@ Portail_Investissement_Personnel_V1/
     ├── v1-1.test.js
     ├── v1-1-1.test.js
     ├── v1-2.test.js
+    ├── v1-2-1.test.js
     └── test-runner.html
 ├── DEPANNAGE_PRIX_AUTOMATIQUES.md
 └── worker-market-prices/
@@ -57,7 +58,8 @@ Portail_Investissement_Personnel_V1/
 - `tests/v1-1.test.js` : 21 tests supplémentaires du portail.
 - `tests/v1-1-1.test.js` : 25 tests de correction sécurisée.
 - `tests/v1-2.test.js` : 25 tests de garantie des puts vendus.
-- `tests/test-runner.html` : affichage des 105 tests du portail dans un navigateur.
+- `tests/v1-2-1.test.js` : 34 tests de tri, notes et couverture par put long.
+- `tests/test-runner.html` : affichage des 139 tests du portail dans un navigateur.
 - `worker-market-prices` : Worker Cloudflare et 17 tests de sécurité.
 - `README.md` : instructions simples d’utilisation et de publication.
 - `RAPPORT_FINAL.md` : rapport complet de livraison.

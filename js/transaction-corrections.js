@@ -4,6 +4,7 @@
   const isNode = typeof module !== "undefined" && module.exports;
   const Forms = isNode ? require("./forms.js") : globalScope.PortalForms;
   const Calc = isNode ? require("./calculations.js") : globalScope.PortalCalculations;
+  const Collateral = isNode ? require("./collateral.js") : globalScope.PortalCollateral;
 
   function clone(value) {
     return JSON.parse(JSON.stringify(value));
@@ -32,6 +33,41 @@
     return (state?.transactions || []).filter((transaction) =>
       transaction.id !== opening.id && transaction.contractId === opening.contractId
     );
+  }
+
+  function coverageDependents(state, opening) {
+    if (
+      !opening
+      || opening.type !== "OPTION_BUY_OPEN"
+      || opening.optionType !== "PUT"
+      || !opening.contractId
+    ) return [];
+    return (state?.transactions || []).filter((transaction) =>
+      transaction.type === "OPTION_SELL_OPEN"
+      && transaction.optionType === "PUT"
+      && transaction.putCollateralMode === Collateral.COVERED_BY_LONG_PUT
+      && transaction.coveringContractId === opening.contractId
+    );
+  }
+
+  function refreshCoverageTypes(transactions) {
+    const openings = new Map((transactions || [])
+      .filter((transaction) => Forms.OPTION_OPEN_TYPES.has(transaction.type))
+      .map((transaction) => [transaction.contractId, transaction]));
+    return (transactions || []).map((transaction) => {
+      if (
+        transaction.type !== "OPTION_SELL_OPEN"
+        || transaction.optionType !== "PUT"
+        || transaction.putCollateralMode !== Collateral.COVERED_BY_LONG_PUT
+      ) return transaction;
+      return {
+        ...transaction,
+        coverageType: Collateral.identifyCoverageType(
+          transaction,
+          openings.get(transaction.coveringContractId)
+        )
+      };
+    });
   }
 
   function openingIdentityChanged(before, after) {
@@ -151,7 +187,9 @@
     );
     if (!validation.valid) return { valid: false, errors: validation.errors };
 
-    const dependencies = linkedTransactions(previous, original);
+    const linked = linkedTransactions(previous, original);
+    const coverageLinks = coverageDependents(previous, original);
+    const dependencies = [...linked, ...coverageLinks];
     const identityChanged = openingIdentityChanged(original, validation.value);
     const confirmationRequired = identityChanged && dependencies.length > 0;
     if (confirmationRequired && !options.allowCascade) {
@@ -175,8 +213,16 @@
           updatedAt: options.updatedAt || new Date().toISOString()
         };
       }
+      if (identityChanged && transaction.coveringContractId === original.contractId) {
+        return {
+          ...transaction,
+          coveringContractId: validation.value.contractId,
+          updatedAt: options.updatedAt || new Date().toISOString()
+        };
+      }
       return transaction;
     });
+    next.transactions = refreshCoverageTypes(next.transactions);
 
     next.optionPrices = clone(next.optionPrices || {});
     if (identityChanged && original.contractId !== validation.value.contractId) {
@@ -203,6 +249,17 @@
     const previous = clone(state);
     const target = findTransaction(previous, transactionId);
     if (!target) return { valid: false, errors: ["La transaction à supprimer est introuvable."] };
+    const coverageLinks = coverageDependents(previous, target);
+    if (coverageLinks.length) {
+      const contracts = coverageLinks
+        .map((transaction) => `${transaction.contractId} (${transaction.contracts} contrat(s))`)
+        .join(", ");
+      return {
+        valid: false,
+        errors: [`Ce put acheté couvre ${contracts}. Modifiez d’abord le mode de garantie des puts vendus liés.`],
+        coverageDependents: clone(coverageLinks)
+      };
+    }
     const dependencies = linkedTransactions(previous, target);
     if (dependencies.length && !options.allowCascade) {
       return {
@@ -252,6 +309,7 @@
     stateBeforeTransaction,
     findTransaction,
     linkedTransactions,
+    coverageDependents,
     openingIdentityChanged,
     validateStateIntegrity,
     prepareAdd,

@@ -36,6 +36,25 @@
     });
   }
 
+  function sortOpenOptionsByExpiration(options, today = new Date().toISOString().slice(0, 10)) {
+    return [...(options || [])].sort((a, b) => {
+      const aExpired = String(a?.expiration || "") < String(today || "");
+      const bExpired = String(b?.expiration || "") < String(today || "");
+      if (aExpired !== bExpired) return aExpired ? 1 : -1;
+      const byExpiration = String(a?.expiration || "").localeCompare(String(b?.expiration || ""));
+      if (byExpiration) return aExpired ? -byExpiration : byExpiration;
+      const optionRank = (option) => option?.optionType === "PUT" ? 0 : 1;
+      const byType = optionRank(a) - optionRank(b);
+      if (byType) return byType;
+      const byStrike = number(a?.strike) - number(b?.strike);
+      if (byStrike) return byStrike;
+      return String(a?.contractId || "").localeCompare(String(b?.contractId || ""), undefined, {
+        numeric: true,
+        sensitivity: "base"
+      });
+    });
+  }
+
   function createSecurityLedger(security) {
     return {
       symbol: security.symbol,
@@ -61,6 +80,7 @@
       stockGuarantee: 0,
       fullySecuredPutGuarantee: 0,
       marginPutGuarantee: 0,
+      coveredPutGuarantee: 0,
       otherShortOptionGuarantee: 0,
       guaranteeRequired: 0,
       capitalEngaged: 0,
@@ -239,6 +259,15 @@
               marginRequirementCheckedAt: side === "SHORT" && transaction.optionType === "PUT"
                 ? transaction.marginRequirementCheckedAt || null
                 : null,
+              coveringContractId: side === "SHORT" && transaction.optionType === "PUT"
+                ? transaction.coveringContractId || null
+                : null,
+              coveredContracts: side === "SHORT" && transaction.optionType === "PUT"
+                ? number(transaction.coveredContracts)
+                : 0,
+              coverageType: side === "SHORT" && transaction.optionType === "PUT"
+                ? transaction.coverageType || null
+                : null,
               openedOn: transaction.date
             });
             if (side === "SHORT") ledger.premiumsReceived += gross;
@@ -330,6 +359,56 @@
       }
     }
 
+    const longPutAllocations = new Map();
+    const coveredShortsByLong = new Map();
+    for (const option of options.values()) {
+      if (
+        option.side !== "SHORT"
+        || option.optionType !== "PUT"
+        || option.putCollateralMode !== Collateral.COVERED_BY_LONG_PUT
+        || option.contractsOpen <= 0
+      ) continue;
+      const coveringOption = options.get(option.coveringContractId);
+      const allocated = option.contractsOpen;
+      option.coveredContractsOpen = allocated;
+      option.coverageType = Collateral.identifyCoverageType(option, coveringOption);
+      option.coverageTypeLabel = Collateral.coverageTypeLabel(option.coverageType);
+      if (!Collateral.isEligibleCoveringLongPut(option, coveringOption)) {
+        errors.push({
+          transactionId: option.contractId,
+          message: `Le put vendu ${option.contractId} ne possède plus de put long admissible comme couverture.`
+        });
+        continue;
+      }
+      longPutAllocations.set(
+        coveringOption.contractId,
+        number(longPutAllocations.get(coveringOption.contractId)) + allocated
+      );
+      if (!coveredShortsByLong.has(coveringOption.contractId)) {
+        coveredShortsByLong.set(coveringOption.contractId, []);
+      }
+      coveredShortsByLong.get(coveringOption.contractId).push({
+        contractId: option.contractId,
+        strike: option.strike,
+        expiration: option.expiration,
+        contracts: allocated
+      });
+    }
+
+    for (const option of options.values()) {
+      if (option.side !== "LONG" || option.optionType !== "PUT") continue;
+      option.longPutContractsOpen = option.contractsOpen;
+      option.longPutContractsAllocated = number(longPutAllocations.get(option.contractId));
+      option.longPutContractsAvailable = option.contractsOpen - option.longPutContractsAllocated;
+      option.usedAsCoverageOf = clone(coveredShortsByLong.get(option.contractId) || []);
+      if (option.longPutContractsAvailable < 0) {
+        errors.push({
+          transactionId: option.contractId,
+          message: `Le put long ${option.contractId} est suralloué de ${Math.abs(option.longPutContractsAvailable)} contrat(s).`
+        });
+      }
+    }
+
     let stocksValue = 0;
     let longOptionsValue = 0;
     let shortOptionsLiability = 0;
@@ -337,6 +416,7 @@
     let stockGuarantee = 0;
     let fullySecuredPutGuarantee = 0;
     let marginPutGuarantee = 0;
+    let coveredPutGuarantee = 0;
     let otherShortOptionGuarantee = 0;
     let realizedSecurities = 0;
     let unrealizedTotal = 0;
@@ -370,10 +450,14 @@
         else {
           shortOptionsLiability += currentValue;
           if (option.optionType === "PUT") {
+            const coveringOption = option.putCollateralMode === Collateral.COVERED_BY_LONG_PUT
+              ? options.get(option.coveringContractId)
+              : null;
             const collateral = Collateral.calculatePutCollateral(
               option,
               ledger.marginRequirement,
-              option.contractsOpen
+              option.contractsOpen,
+              coveringOption
             );
             Object.assign(position, {
               collateralAmount: collateral.amount,
@@ -381,10 +465,20 @@
               collateralLabel: collateral.label,
               collateralMarginRate: collateral.marginRate,
               collateralCheckedAt: collateral.checkedAt,
-              collateralReplacedInvalidActual: Boolean(collateral.replacedInvalidActual)
+              collateralReplacedInvalidActual: Boolean(collateral.replacedInvalidActual),
+              coverageType: collateral.coverageType || option.coverageType || null,
+              coverageTypeLabel: collateral.coverageTypeLabel || option.coverageTypeLabel || null,
+              coveringOption: coveringOption ? {
+                contractId: coveringOption.contractId,
+                strike: coveringOption.strike,
+                expiration: coveringOption.expiration,
+                contractsOpen: coveringOption.contractsOpen
+              } : null
             });
             if (option.putCollateralMode === Collateral.FULLY_SECURED) {
               ledger.fullySecuredPutGuarantee += collateral.amount;
+            } else if (option.putCollateralMode === Collateral.COVERED_BY_LONG_PUT) {
+              ledger.coveredPutGuarantee += collateral.amount;
             } else {
               ledger.marginPutGuarantee += collateral.amount;
             }
@@ -428,6 +522,7 @@
       stockGuarantee += ledger.stockGuarantee;
       fullySecuredPutGuarantee += ledger.fullySecuredPutGuarantee;
       marginPutGuarantee += ledger.marginPutGuarantee;
+      coveredPutGuarantee += ledger.coveredPutGuarantee;
       otherShortOptionGuarantee += ledger.otherShortOptionGuarantee;
       guaranteeRequired += ledger.guaranteeRequired;
       realizedSecurities += ledger.realizedPL;
@@ -455,6 +550,7 @@
         stockGuarantee: roundMoney(stockGuarantee),
         fullySecuredPutGuarantee: roundMoney(fullySecuredPutGuarantee),
         marginPutGuarantee: roundMoney(marginPutGuarantee),
+        coveredPutGuarantee: roundMoney(coveredPutGuarantee),
         otherShortOptionGuarantee: roundMoney(otherShortOptionGuarantee),
         guaranteeRequired: roundMoney(guaranteeRequired),
         marginAvailable: roundMoney(marginAvailable),
@@ -478,6 +574,7 @@
         stockGuarantee: roundMoney(ledger.stockGuarantee),
         fullySecuredPutGuarantee: roundMoney(ledger.fullySecuredPutGuarantee),
         marginPutGuarantee: roundMoney(ledger.marginPutGuarantee),
+        coveredPutGuarantee: roundMoney(ledger.coveredPutGuarantee),
         otherShortOptionGuarantee: roundMoney(ledger.otherShortOptionGuarantee),
         guaranteeRequired: roundMoney(ledger.guaranteeRequired),
         premiumsReceived: roundMoney(ledger.premiumsReceived),
@@ -496,6 +593,7 @@
     MULTIPLIER,
     calculatePortfolio,
     compareTransactionsChronologically,
+    sortOpenOptionsByExpiration,
     transactionCashFlow,
     roundMoney
   };

@@ -1,4 +1,14 @@
-# Rapport final — Portail d’investissement personnel V1.2.0
+# Rapport final — Portail d’investissement personnel V1.2.1
+
+## Correctifs V1.2.1 — options, notes et couverture
+
+La V1.2.1 classe toutes les listes complètes d’options ouvertes sans modifier l’historique des transactions. Les échéances futures viennent d’abord; les positions échues non régularisées sont ensuite identifiées par une pastille claire.
+
+Les longues notes sont maintenant limitées dans les tableaux sur ordinateur et mobile. Leur contenu complet demeure accessible dans une fenêtre qui protège le texte avec `escapeHtml` et se ferme au bouton, avec Échap ou par un clic à l’extérieur.
+
+Le troisième mode `COVERED_BY_LONG_PUT` réserve un put long admissible. Un registre calculé empêche toute double allocation. Le portail reconnaît les spreads verticaux, calendriers et diagonaux, applique la formule exacte du risque défini aux verticaux créditeurs et donne priorité à la garantie réelle Wealthsimple pour les autres structures. Une valeur conservatrice nulle ou négative exige une révision.
+
+Les fermetures partielles libèrent la quantité correspondante. Une assignation libère la couverture, conserve le put long, crée les actions et applique uniquement leur garantie. Les sauvegardes V1.2.0 demeurent compatibles et leurs anciens modes ne sont pas modifiés.
 
 ## Évolution V1.2.0 — garanties des puts vendus
 
@@ -227,7 +237,7 @@ La clé principale du navigateur est :
 - La saisie manuelle demeure le mode de secours.
 - Le stockage local est propre à chaque navigateur et appareil.
 - Les sauvegardes JSON ne sont pas chiffrées.
-- Les options courtes utilisent une exigence de marge manuelle.
+- Les calendriers et diagonales peuvent exiger une garantie réelle Wealthsimple, car l’estimation du portail n’est pas l’exigence officielle du courtier.
 - La V1 ne convertit pas automatiquement les devises.
 - La V1 ne gère pas automatiquement les fractionnements ou fusions de titres.
 - La V1 n’importe pas les CSV Wealthsimple.
@@ -244,4 +254,4 @@ La clé principale du navigateur est :
 
 ## Conclusion
 
-Le Portail d’investissement personnel V1.1 conserve une interface statique compatible avec GitHub Pages, ajoute un Worker sécurisé pour les prix, protège les données privées et est livré avec 34 tests historiques et 38 nouveaux tests réussis.
+Le Portail d’investissement personnel V1.2.1 demeure une interface statique compatible avec GitHub Pages. Il protège les données privées, conserve le Worker de prix inchangé et réussit 156 tests sur 156, dont 34 contrôles propres aux correctifs V1.2.1.

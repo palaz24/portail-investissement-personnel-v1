@@ -3,8 +3,9 @@
 
   const FULLY_SECURED = "FULLY_SECURED";
   const MARGIN_PARTIAL = "MARGIN_PARTIAL";
+  const COVERED_BY_LONG_PUT = "COVERED_BY_LONG_PUT";
   const REVIEW_REQUIRED = "REVIEW_REQUIRED";
-  const VALID_MODES = new Set([FULLY_SECURED, MARGIN_PARTIAL]);
+  const VALID_MODES = new Set([FULLY_SECURED, MARGIN_PARTIAL, COVERED_BY_LONG_PUT]);
   const MULTIPLIER = 100;
 
   function number(value, fallback = NaN) {
@@ -32,7 +33,104 @@
     return Number.isFinite(rate) && rate > 0 && rate <= 1 ? rate : null;
   }
 
-  function calculatePutCollateral(opening, marginRate, contractsOpen = opening?.contracts) {
+  function identifyCoverageType(shortPut, longPut) {
+    if (!shortPut || !longPut) return REVIEW_REQUIRED;
+    const sameExpiration = String(shortPut.expiration || "") === String(longPut.expiration || "");
+    const laterExpiration = String(longPut.expiration || "") > String(shortPut.expiration || "");
+    const sameStrike = number(shortPut.strike) === number(longPut.strike);
+    if (sameExpiration && !sameStrike) return "VERTICAL";
+    if (laterExpiration && sameStrike) return "CALENDAR";
+    if (laterExpiration && !sameStrike) return "DIAGONAL";
+    return REVIEW_REQUIRED;
+  }
+
+  function coverageTypeLabel(type) {
+    return {
+      VERTICAL: "Spread vertical",
+      CALENDAR: "Spread calendrier",
+      DIAGONAL: "Spread diagonal"
+    }[type] || "À vérifier";
+  }
+
+  function isEligibleCoveringLongPut(shortPut, longPut) {
+    return Boolean(
+      shortPut
+      && longPut
+      && longPut.side === "LONG"
+      && longPut.optionType === "PUT"
+      && String(longPut.symbol || "").toUpperCase() === String(shortPut.symbol || "").toUpperCase()
+      && number(longPut.contractsOpen) > 0
+      && String(longPut.expiration || "") >= String(shortPut.expiration || "")
+      && String(longPut.contractId || "") !== String(shortPut.contractId || "")
+      && identifyCoverageType(shortPut, longPut) !== REVIEW_REQUIRED
+    );
+  }
+
+  function calculateCoveredPutCollateral(opening, coveringOption, contractsOpen = opening?.contracts) {
+    const originalContracts = number(opening?.originalContracts ?? opening?.contracts, 0);
+    const remainingContracts = number(contractsOpen, 0);
+    const actual = number(opening?.actualMarginRequirement);
+    const coverageType = identifyCoverageType(opening, coveringOption);
+    if (Number.isFinite(actual) && actual > 0 && originalContracts > 0) {
+      return {
+        amount: roundMoney(actual * remainingContracts / originalContracts),
+        mode: COVERED_BY_LONG_PUT,
+        source: "ACTUAL_WEALTHSIMPLE",
+        label: "Réelle — Wealthsimple",
+        coverageType,
+        coverageTypeLabel: coverageTypeLabel(coverageType),
+        checkedAt: opening?.marginRequirementCheckedAt || null
+      };
+    }
+
+    const shortStrike = number(opening?.strike, 0);
+    const longStrike = number(coveringOption?.strike, 0);
+    if (coverageType === "VERTICAL" && shortStrike > longStrike) {
+      const width = shortStrike - longStrike;
+      const netCredit = number(opening?.openingPremium ?? opening?.premium, 0)
+        - number(coveringOption?.openingPremium ?? coveringOption?.premium, 0);
+      return {
+        amount: roundMoney(Math.max(
+          0,
+          width * MULTIPLIER * remainingContracts
+            - netCredit * MULTIPLIER * remainingContracts
+        )),
+        mode: COVERED_BY_LONG_PUT,
+        source: "DEFINED_RISK_ESTIMATE",
+        label: "Estimée — risque défini",
+        coverageType,
+        coverageTypeLabel: coverageTypeLabel(coverageType),
+        checkedAt: opening?.marginRequirementCheckedAt || null
+      };
+    }
+
+    if (coverageType === "CALENDAR" || coverageType === "DIAGONAL") {
+      const estimate = (shortStrike - longStrike) * MULTIPLIER * remainingContracts;
+      if (estimate > 0) {
+        return {
+          amount: roundMoney(estimate),
+          mode: COVERED_BY_LONG_PUT,
+          source: "CONSERVATIVE_ESTIMATE",
+          label: "Estimée — à vérifier",
+          coverageType,
+          coverageTypeLabel: coverageTypeLabel(coverageType),
+          checkedAt: opening?.marginRequirementCheckedAt || null
+        };
+      }
+    }
+
+    return {
+      amount: 0,
+      mode: COVERED_BY_LONG_PUT,
+      source: "REVIEW_REQUIRED",
+      label: "À vérifier",
+      coverageType,
+      coverageTypeLabel: coverageTypeLabel(coverageType),
+      checkedAt: opening?.marginRequirementCheckedAt || null
+    };
+  }
+
+  function calculatePutCollateral(opening, marginRate, contractsOpen = opening?.contracts, coveringOption = null) {
     const strike = number(opening?.strike, 0);
     const originalContracts = number(opening?.originalContracts ?? opening?.contracts, 0);
     const remainingContracts = number(contractsOpen, 0);
@@ -71,6 +169,9 @@
         };
       }
     }
+    if (mode === COVERED_BY_LONG_PUT) {
+      return calculateCoveredPutCollateral(opening, coveringOption, remainingContracts);
+    }
     return {
       amount: 0,
       mode,
@@ -101,6 +202,11 @@
           report.reviewRequired.push(next.id || "inconnue");
         }
       }
+      if (next.putCollateralMode === COVERED_BY_LONG_PUT) {
+        next.coveringContractId = next.coveringContractId || null;
+        next.coveredContracts = Number(next.coveredContracts || next.contracts || 0);
+        next.coverageType = next.coverageType || null;
+      }
       if (next.actualMarginRequirement === "") next.actualMarginRequirement = null;
       if (!next.marginRequirementCheckedAt) next.marginRequirementCheckedAt = null;
       return next;
@@ -112,10 +218,15 @@
   const api = {
     FULLY_SECURED,
     MARGIN_PARTIAL,
+    COVERED_BY_LONG_PUT,
     REVIEW_REQUIRED,
     VALID_MODES,
     isSoldPutOpening,
     marginRateFor,
+    identifyCoverageType,
+    coverageTypeLabel,
+    isEligibleCoveringLongPut,
+    calculateCoveredPutCollateral,
     calculatePutCollateral,
     migrateState,
     roundMoney

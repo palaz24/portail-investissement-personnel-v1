@@ -441,6 +441,67 @@ main {
 
 .transaction-actions { display: flex; min-width: 176px; gap: 8px; align-items: center; }
 .transaction-actions .button { min-height: 38px; white-space: nowrap; }
+.transaction-note {
+  width: min(280px, 30vw);
+  max-width: 280px;
+  white-space: normal;
+}
+.transaction-note-preview {
+  display: -webkit-box;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.transaction-note .text-button {
+  display: inline-flex;
+  margin-top: 5px;
+  padding: 0;
+  font-size: 0.68rem;
+}
+.note-button-mobile { display: none; }
+.note-modal { width: min(560px, 100%); }
+.note-modal-content {
+  max-height: min(55vh, 420px);
+  overflow: auto;
+  padding: 20px;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+.note-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 20px 20px;
+}
+.expired-option-badge {
+  display: inline-flex;
+  margin-top: 5px;
+  padding: 3px 7px;
+  border: 1px solid rgba(255, 183, 87, 0.32);
+  border-radius: 999px;
+  color: var(--warning);
+  background: var(--warning-soft);
+  font-size: 0.62rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.option-collateral-detail {
+  min-width: 180px;
+  white-space: normal;
+  line-height: 1.45;
+}
+.option-collateral-detail small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+}
+.coverage-type-preview {
+  align-self: end;
+  margin: 0;
+}
 .operation-toolbar { justify-content: flex-end; }
 .table-wrap { width: 100%; overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
@@ -720,6 +781,19 @@ input:disabled { opacity: 0.7; cursor: not-allowed; }
   .operation-toolbar { width: 100%; }
   .transaction-actions { min-width: 132px; flex-direction: column; align-items: stretch; }
   .transaction-actions .button { width: 100%; min-height: 42px; padding-inline: 10px; }
+  .transaction-note {
+    width: min(190px, 46vw);
+    max-width: 190px;
+  }
+  .transaction-note-preview {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .note-button-desktop { display: none; }
+  .note-button-mobile { display: inline; }
+  .option-collateral-detail { min-width: 150px; }
   .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kpi-card { min-height: 108px; padding: 14px; }
   .allocation-row { grid-template-columns: 1fr 48px; }

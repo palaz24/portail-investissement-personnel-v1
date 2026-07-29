@@ -1,41 +1,41 @@
-# Résultats des tests — Portail d’investissement personnel V1.2.0
+# Résultats des tests — Portail d’investissement personnel V1.2.1
 
 Date de validation : 29 juillet 2026
 
 ## Résultat final
 
-**122 tests réussis sur 122.**
+**156 tests réussis sur 156.**
 
-- Anciens tests conservés : **97 / 97**
+- Anciens tests conservés : **122 / 122**
   - calculs historiques : **34 / 34**
   - portail V1.1 : **21 / 21**
   - corrections V1.1.1 : **25 / 25**
-  - Cloudflare Worker : **17 / 17**
-- Nouveaux tests V1.2.0 : **25 / 25**
-- Tests du portail affichés dans le navigateur : **105 / 105**
+  - garanties V1.2.0 : **25 / 25**
+  - Cloudflare Worker inchangé : **17 / 17**
+- Nouveaux tests V1.2.1 : **34 / 34**
+- Tests du portail affichés dans le navigateur : **139 / 139**
 - Erreurs JavaScript dans le navigateur : **0**
 
-## Contrôles V1.2.0
+## Contrôles V1.2.1
 
-- Choix obligatoire uniquement pour les puts vendus à l’ouverture.
-- Put Ford garanti à 100 % : 1 400 $ pour un strike de 14 $.
-- Put Ford sur marge à 30 % : 420 $.
-- Garantie réelle Wealthsimple prioritaire sur l’estimation.
-- Recalcul après modification du mode, du strike, des contrats ou du taux du titre.
-- Libération complète ou partielle lors d’une fermeture.
-- Libération lors de l’expiration et de l’assignation.
-- Garantie des actions appliquée après assignation, sans double comptabilisation.
-- Suppression et annulation cohérentes.
-- Sauvegarde, restauration et migration des anciennes transactions.
-- Garantie totale ventilée et exacte.
+- Tri pur et non destructif des options futures et échues.
+- Ordre secondaire par PUT, CALL, strike et identifiant de contrat.
+- Notes courtes directes et notes longues abrégées sur ordinateur et mobile.
+- Fenêtre complète accessible, refermable avec Échap et protégée contre le HTML.
+- Troisième mode de garantie réservé aux puts vendus.
+- Sélection obligatoire d’un put long admissible du même symbole.
+- Refus des calls, mauvaises échéances et doubles allocations.
+- Détection des spreads verticaux, calendriers et diagonaux.
+- Calcul vertical exact de 175 $ pour l’exemple de référence.
+- Priorité à la garantie réelle Wealthsimple.
+- Libération proportionnelle après fermeture, expiration, assignation ou suppression.
+- Blocage d’une opération qui laisserait un put vendu sans couverture.
+- Assignation sans double comptabilisation et conservation du put long.
+- Sauvegarde, restauration, modification et annulation des liens de couverture.
 
-## Validation dans le navigateur
+## Confidentialité et isolation
 
-- Aucun choix affiché pour un call vendu.
-- Deux choix sans présélection affichés pour un put vendu.
-- Enregistrement refusé sans mode.
-- Estimation Ford affichée à 420 $.
-- Garantie réelle affichée à 435 $ et identifiée comme Wealthsimple.
-- Nouvelles colonnes visibles dans la fiche Ford.
-- Page de tests : **105 / 105**.
-- Erreurs JavaScript : **0**.
+- Worker Cloudflare : aucun fichier modifié.
+- Secret `MARKETDATA_TOKEN` : jamais lu, affiché ou publié.
+- Données privées : aucune détectée dans les changements.
+- Projet Ford parent : aucun fichier suivi modifié.

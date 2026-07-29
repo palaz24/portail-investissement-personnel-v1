@@ -43,6 +43,26 @@
       .replaceAll("'", "&#039;");
   }
 
+  function renderTransactionNote(note, transactionId) {
+    const value = String(note || "");
+    if (!value.trim()) return "—";
+    const preview = value.replace(/\s+/g, " ").trim();
+    const isLong = value.includes("\n") || preview.length > 96;
+    return `<div class="transaction-note">
+      <span class="transaction-note-preview">${escapeHtml(preview)}</span>
+      ${isLong ? `<button class="text-button" type="button" data-view-note="${escapeHtml(transactionId)}" aria-label="Voir la note complète">
+        <span class="note-button-desktop">Voir la note</span><span class="note-button-mobile">Voir</span>
+      </button>` : ""}
+    </div>`;
+  }
+
+  function openTransactionNote(transactionId) {
+    const transaction = Corrections.findTransaction(state, transactionId);
+    if (!transaction?.note) return;
+    $("#noteModalContent").innerHTML = escapeHtml(transaction.note).replace(/\r?\n/g, "<br>");
+    openModal("noteModal");
+  }
+
   function formatMoney(value, digits = 2) {
     return new Intl.NumberFormat("fr-CA", {
       style: "currency",
@@ -380,6 +400,7 @@
       kpiCard("Garantie des actions", formatMoney(account.stockGuarantee)),
       kpiCard("Puts garantis à 100 %", formatMoney(account.fullySecuredPutGuarantee)),
       kpiCard("Puts sur marge", formatMoney(account.marginPutGuarantee)),
+      kpiCard("Puts couverts par option", formatMoney(account.coveredPutGuarantee)),
       kpiCard("Autres options courtes", formatMoney(account.otherShortOptionGuarantee)),
       kpiCard("Garantie totale", formatMoney(account.guaranteeRequired), { tone: "accent" }),
       kpiCard("Marge disponible", formatMoney(account.marginAvailable), { valueClass: valueClass(account.marginAvailable) }),
@@ -486,6 +507,15 @@
         if (option.putCollateralMode === Collateral.MARGIN_PARTIAL && !(option.collateralMarginRate > 0)) {
           alerts.push({ level: "danger", icon: "!", title: "Taux de marge du titre manquant", message: `Ajoutez un taux valide pour ${option.symbol}.` });
         }
+        if (
+          option.putCollateralMode === Collateral.COVERED_BY_LONG_PUT
+          && option.collateralSource === "REVIEW_REQUIRED"
+        ) {
+          alerts.push({ level: "danger", icon: "!", title: "Couverture de put à vérifier", message: `Le contrat ${option.contractId} exige une garantie réelle Wealthsimple ou une autre couverture.` });
+        }
+        if (option.collateralSource === "CONSERVATIVE_ESTIMATE") {
+          alerts.push({ level: "warning", icon: "○", title: "Garantie de calendrier ou diagonal estimée", message: `Le contrat ${option.contractId} utilise une estimation conservatrice à vérifier avec Wealthsimple.` });
+        }
         if (Number(option.actualMarginRequirement) < 0) {
           alerts.push({ level: "danger", icon: "!", title: "Garantie réelle inférieure à zéro", message: `Corrigez le contrat ${option.contractId}.` });
         }
@@ -498,6 +528,26 @@
             alerts.push({ level: "warning", icon: "◷", title: "Garantie réelle non vérifiée depuis plus de 30 jours", message: `Dernière vérification du contrat ${option.contractId} : ${formatDate(option.collateralCheckedAt)}.` });
           }
         }
+      }
+    }
+    for (const assignment of state.transactions.filter((transaction) => transaction.type === "OPTION_ASSIGNMENT")) {
+      const opening = state.transactions.find((transaction) =>
+        transaction.contractId === assignment.contractId
+        && transaction.type === "OPTION_SELL_OPEN"
+        && transaction.putCollateralMode === Collateral.COVERED_BY_LONG_PUT
+      );
+      if (
+        opening
+        && derived.openOptions.some((option) =>
+          option.contractId === opening.coveringContractId && option.side === "LONG"
+        )
+      ) {
+        alerts.push({
+          level: "warning",
+          icon: "○",
+          title: "Put de couverture toujours ouvert",
+          message: `Après l’assignation de ${opening.contractId}, le put acheté ${opening.coveringContractId} demeure une position longue distincte.`
+        });
       }
     }
     for (const error of derived.errors) {
@@ -563,18 +613,30 @@
           ? "Une ou plusieurs options sont ouvertes. Surveillez leurs échéances."
           : "Aucune option ouverte ni exigence particulière n’est détectée."}</p>`;
 
-    $("#securityOptionsBody").innerHTML = security.optionsOpen.length
-      ? security.optionsOpen.map((option) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const sortedOpenOptions = Calc.sortOpenOptionsByExpiration(security.optionsOpen, today);
+    $("#securityOptionsBody").innerHTML = sortedOpenOptions.length
+      ? sortedOpenOptions.map((option) => {
         const isPutShort = option.side === "SHORT" && option.optionType === "PUT";
+        const isExpired = String(option.expiration || "") < today;
         const mode = isPutShort
           ? option.putCollateralMode === Collateral.FULLY_SECURED
             ? "Put garanti à 100 %"
             : option.putCollateralMode === Collateral.MARGIN_PARTIAL
               ? "Put sur marge"
+              : option.putCollateralMode === Collateral.COVERED_BY_LONG_PUT
+                ? "Couvert par une option"
               : "À vérifier"
           : "—";
+        const coverageDetails = option.putCollateralMode === Collateral.COVERED_BY_LONG_PUT
+          ? `<small>Couverture : PUT ${formatMoney(option.coveringOption?.strike)} — ${formatDate(option.coveringOption?.expiration)}</small><small>Type : ${escapeHtml(option.coverageTypeLabel || "À vérifier")}</small>`
+          : option.side === "LONG" && option.optionType === "PUT" && option.usedAsCoverageOf?.length
+            ? option.usedAsCoverageOf.map((linked) =>
+              `<small>Utilisé comme couverture de : PUT vendu ${formatMoney(linked.strike)} — ${linked.contracts} contrat(s)</small>`
+            ).join("")
+            : "";
         return `
-        <tr><td><code>${escapeHtml(option.contractId)}</code></td><td>${option.side === "SHORT" ? "Courte" : "Longue"} ${escapeHtml(option.optionType)}</td><td>${formatDate(option.expiration)}</td><td>${formatMoney(option.strike)}</td><td>${option.contractsOpen}</td><td>${escapeHtml(mode)}</td><td>${isPutShort ? formatMoney(option.collateralAmount) : "—"}</td><td>${isPutShort ? escapeHtml(option.collateralLabel) : "—"}</td><td>${isPutShort ? formatDate(option.collateralCheckedAt) : "—"}</td><td>${formatMoney(option.currentPrice)}</td><td class="${valueClass(option.unrealizedPL)}">${formatMoney(option.unrealizedPL)}</td></tr>`;
+        <tr><td><code>${escapeHtml(option.contractId)}</code></td><td>${option.side === "SHORT" ? "Courte" : "Longue"} ${escapeHtml(option.optionType)}</td><td>${formatDate(option.expiration)}${isExpired ? `<span class="expired-option-badge">Échue — à régulariser</span>` : ""}</td><td>${formatMoney(option.strike)}</td><td>${option.contractsOpen}</td><td class="option-collateral-detail">${escapeHtml(mode)}${coverageDetails}</td><td>${isPutShort ? formatMoney(option.collateralAmount) : "—"}</td><td>${isPutShort ? escapeHtml(option.collateralLabel) : "—"}</td><td>${isPutShort ? formatDate(option.collateralCheckedAt) : "—"}</td><td>${formatMoney(option.currentPrice)}</td><td class="${valueClass(option.unrealizedPL)}">${formatMoney(option.unrealizedPL)}</td></tr>`;
       }).join("")
       : emptyRow(11, "Aucune option ouverte pour ce titre.");
 
@@ -582,7 +644,7 @@
       state.transactions.filter((transaction) => transaction.symbol === selectedSymbol)
     ).slice(0, 12);
     $("#securityTransactionsBody").innerHTML = transactions.length
-      ? transactions.map((transaction) => `<tr><td>${formatDate(transaction.date)}</td><td>${escapeHtml(Forms.TYPE_LABELS[transaction.type] || transaction.type)}</td><td>${transactionDetails(transaction)}</td><td>${escapeHtml(transaction.note || "—")}</td><td><div class="transaction-actions"><button class="button button-secondary compact" type="button" data-edit-transaction="${escapeHtml(transaction.id)}" aria-label="Modifier la transaction du ${escapeHtml(formatDate(transaction.date))}">Modifier</button></div></td></tr>`).join("")
+      ? transactions.map((transaction) => `<tr><td>${formatDate(transaction.date)}</td><td>${escapeHtml(Forms.TYPE_LABELS[transaction.type] || transaction.type)}</td><td>${transactionDetails(transaction)}</td><td>${renderTransactionNote(transaction.note, transaction.id)}</td><td><div class="transaction-actions"><button class="button button-secondary compact" type="button" data-edit-transaction="${escapeHtml(transaction.id)}" aria-label="Modifier la transaction du ${escapeHtml(formatDate(transaction.date))}">Modifier</button></div></td></tr>`).join("")
       : emptyRow(5, "Aucune transaction pour ce titre.");  }
 
   function transactionActionButtons(transaction, includeDelete = true) {
@@ -604,7 +666,7 @@
     $("#transactionsBody").innerHTML = rows.length
       ? rows.map((transaction) => {
         const flow = displayCashFlow(transaction);
-        return `<tr><td>${formatDate(transaction.date)}</td><td>${escapeHtml(transaction.symbol || "Compte")}</td><td>${escapeHtml(Forms.TYPE_LABELS[transaction.type] || transaction.type)}</td><td>${transactionDetails(transaction)}</td><td class="${valueClass(flow)}">${flow == null ? "—" : formatMoney(flow)}</td><td>${escapeHtml(transaction.note || "—")}</td><td>${transactionActionButtons(transaction)}</td></tr>`;
+        return `<tr><td>${formatDate(transaction.date)}</td><td>${escapeHtml(transaction.symbol || "Compte")}</td><td>${escapeHtml(Forms.TYPE_LABELS[transaction.type] || transaction.type)}</td><td>${transactionDetails(transaction)}</td><td class="${valueClass(flow)}">${flow == null ? "—" : formatMoney(flow)}</td><td>${renderTransactionNote(transaction.note, transaction.id)}</td><td>${transactionActionButtons(transaction)}</td></tr>`;
       }).join("")
       : emptyRow(7, "Aucune opération ne correspond aux filtres.");
   }
@@ -642,8 +704,9 @@
         </form>`;
     }).join("");
 
-    $("#optionPriceForms").innerHTML = derived.openOptions.length
-      ? derived.openOptions.map((option) => {
+    const sortedOpenOptions = Calc.sortOpenOptionsByExpiration(derived.openOptions);
+    $("#optionPriceForms").innerHTML = sortedOpenOptions.length
+      ? sortedOpenOptions.map((option) => {
         const existing = state.optionPrices?.[option.contractId] || {};
         return `
           <form class="price-row" data-option-price="${escapeHtml(option.contractId)}">
@@ -749,6 +812,7 @@
     $("#shortMarginRequirement").value = String(transaction?.shortMarginRequirement ?? 0);
     $("#actualMarginRequirement").value = transaction?.actualMarginRequirement ?? "";
     $("#marginRequirementCheckedAt").value = transaction?.marginRequirementCheckedAt || "";
+    $("#coveredContracts").value = transaction?.coveredContracts ?? transaction?.contracts ?? "";
     $$('input[name="putCollateralMode"]').forEach((input) => {
       input.checked = input.value === transaction?.putCollateralMode;
     });
@@ -771,6 +835,7 @@
       setOperationField("#shortMarginRequirement", transaction.shortMarginRequirement ?? 0);
       setOperationField("#actualMarginRequirement", transaction.actualMarginRequirement);
       setOperationField("#marginRequirementCheckedAt", transaction.marginRequirementCheckedAt);
+      setOperationField("#coveredContracts", transaction.coveredContracts ?? transaction.contracts);
       $$('input[name="putCollateralMode"]').forEach((input) => {
         input.checked = input.value === transaction.putCollateralMode;
       });
@@ -779,18 +844,61 @@
       setOperationField("#operationFees", transaction.fees ?? 0);
       setOperationField("#operationNote", transaction.note || "");
       updateOperationFields();
+      setOperationField("#coveringContractId", transaction.coveringContractId);
+      updateCoverageTypePreview();
     }
     updateOperationPreview();
     openModal("operationModal");
   }
   function filteredOptionsForType(type) {
-    return operationContextDerived.openOptions.filter((option) => {
+    return Calc.sortOpenOptionsByExpiration(operationContextDerived.openOptions.filter((option) => {
       if (type === "OPTION_BUY_CLOSE") return option.side === "SHORT";
       if (type === "OPTION_SELL_CLOSE") return option.side === "LONG";
       if (type === "OPTION_ASSIGNMENT") return option.side === "SHORT";
       if (type === "OPTION_EXERCISE") return option.side === "LONG";
       return true;
-    });
+    }));
+  }
+
+  function eligibleCoveringLongPuts() {
+    const shortPut = {
+      symbol: $("#operationSymbol").value,
+      optionType: "PUT",
+      expiration: $("#optionExpiration").value,
+      strike: Number($("#optionStrike").value),
+      contractId: editingTransactionId
+        ? Corrections.findTransaction(state, editingTransactionId)?.contractId
+        : null
+    };
+    return Calc.sortOpenOptionsByExpiration(operationContextDerived.openOptions.filter((option) =>
+      Collateral.isEligibleCoveringLongPut(shortPut, option)
+      && Number(option.longPutContractsAvailable ?? option.contractsOpen) > 0
+    ));
+  }
+
+  function populateCoveringOptions() {
+    const select = $("#coveringContractId");
+    const previous = select.value;
+    const options = eligibleCoveringLongPuts();
+    select.innerHTML = options.length
+      ? `<option value="">Choisir un put acheté</option>${options.map((option) =>
+        `<option value="${escapeHtml(option.contractId)}">${escapeHtml(option.symbol)} PUT ${formatMoney(option.strike)} · ${formatDate(option.expiration)} · ${Number(option.longPutContractsAvailable ?? option.contractsOpen)} disponible(s)</option>`
+      ).join("")}`
+      : `<option value="">Aucun put long admissible</option>`;
+    if (options.some((option) => option.contractId === previous)) select.value = previous;
+  }
+
+  function updateCoverageTypePreview() {
+    const selected = operationContextDerived.openOptions.find((option) =>
+      option.contractId === $("#coveringContractId").value
+    );
+    const type = Collateral.identifyCoverageType({
+      expiration: $("#optionExpiration").value,
+      strike: Number($("#optionStrike").value)
+    }, selected);
+    $("#coverageTypePreview").textContent = selected
+      ? `Type de couverture : ${Collateral.coverageTypeLabel(type)}`
+      : "Choisissez un put acheté admissible.";
   }
 
   function updateOperationFields() {
@@ -803,6 +911,7 @@
     const option = open || close || event;
     const soldPut = type === "OPTION_SELL_OPEN" && $("#optionType").value === "PUT";
     const collateralMode = $('input[name="putCollateralMode"]:checked')?.value || "";
+    const coveredByLongPut = soldPut && collateralMode === Collateral.COVERED_BY_LONG_PUT;
 
     $$("[data-operation-group]").forEach((field) => {
       const group = field.dataset.operationGroup;
@@ -815,7 +924,8 @@
         || (group === "option" && option)
         || (group === "option-premium" && (open || close))
         || (group === "put-collateral" && soldPut)
-        || (group === "put-margin-actual" && soldPut && collateralMode === Collateral.MARGIN_PARTIAL)
+        || (group === "put-covering" && coveredByLongPut)
+        || (group === "put-margin-actual" && soldPut && [Collateral.MARGIN_PARTIAL, Collateral.COVERED_BY_LONG_PUT].includes(collateralMode))
         || (group === "short-margin" && type === "OPTION_SELL_OPEN" && !soldPut)
         || (group === "dividend" && type === "DIVIDEND")
         || (group === "fees" && (stock || option));
@@ -829,6 +939,11 @@
         ? options.map((item) => `<option value="${escapeHtml(item.contractId)}">${escapeHtml(item.symbol)} · ${item.optionType} ${formatMoney(item.strike)} · ${formatDate(item.expiration)} · ${item.contractsOpen} contrat(s)</option>`).join("")
         : `<option value="">Aucun contrat compatible</option>`;
       syncExistingContract();
+    }
+    if (coveredByLongPut) {
+      populateCoveringOptions();
+      if (!$("#coveredContracts").value) $("#coveredContracts").value = $("#optionContracts").value;
+      updateCoverageTypePreview();
     }
     updateOperationPreview();
   }
@@ -857,16 +972,32 @@
         } else {
           const symbol = $("#operationSymbol").value;
           const rate = Collateral.marginRateFor(state, symbol);
+          const coveringOption = operationContextDerived.openOptions.find((option) =>
+            option.contractId === $("#coveringContractId").value
+          );
           const collateral = Collateral.calculatePutCollateral({
+            symbol,
+            optionType: "PUT",
+            expiration: $("#optionExpiration").value,
             strike: Number($("#optionStrike").value),
             contracts: Number($("#optionContracts").value),
             originalContracts: Number($("#optionContracts").value),
+            openingPremium: Number($("#optionPremium").value),
             putCollateralMode: mode,
+            coveringContractId: $("#coveringContractId").value,
+            coveredContracts: Number($("#coveredContracts").value),
             actualMarginRequirement: $("#actualMarginRequirement").value,
             marginRequirementCheckedAt: $("#marginRequirementCheckedAt").value
-          }, rate);
-          const modeLabel = mode === Collateral.FULLY_SECURED ? "Put garanti à 100 %" : "Put sur marge";
-          message += ` — Mode : ${modeLabel}. Garantie utilisée : ${formatMoney(collateral.amount)}. Source : ${collateral.label}.`;
+          }, rate, Number($("#optionContracts").value), coveringOption);
+          const modeLabel = mode === Collateral.FULLY_SECURED
+            ? "Put garanti à 100 %"
+            : mode === Collateral.MARGIN_PARTIAL
+              ? "Put sur marge"
+              : "Couvert par une option achetée";
+          const coverage = mode === Collateral.COVERED_BY_LONG_PUT
+            ? ` Type : ${collateral.coverageTypeLabel}.`
+            : "";
+          message += ` — Mode : ${modeLabel}.${coverage} Garantie utilisée : ${formatMoney(collateral.amount)}. Source : ${collateral.label}.`;
         }
       }
     } else if (type === "DIVIDEND") {
@@ -918,6 +1049,18 @@
           ? null
           : Number($("#actualMarginRequirement").value);
         transaction.marginRequirementCheckedAt = $("#marginRequirementCheckedAt").value || null;
+        if (transaction.putCollateralMode === Collateral.COVERED_BY_LONG_PUT) {
+          transaction.coveringContractId = $("#coveringContractId").value || null;
+          transaction.coveredContracts = Number($("#coveredContracts").value);
+          const coveringOption = operationContextDerived.openOptions.find((option) =>
+            option.contractId === transaction.coveringContractId
+          );
+          transaction.coverageType = Collateral.identifyCoverageType(transaction, coveringOption);
+        } else {
+          transaction.coveringContractId = null;
+          transaction.coveredContracts = 0;
+          transaction.coverageType = null;
+        }
       }
       const candidateWithOriginalContract = { ...transaction, contractId: original?.contractId };
       const preserveContractId = original && Forms.OPTION_OPEN_TYPES.has(original.type)
@@ -1018,6 +1161,14 @@
       toast("La transaction à supprimer est introuvable.", "error");
       return;
     }
+    const coverageLinks = Corrections.coverageDependents(state, transaction);
+    if (coverageLinks.length) {
+      const linked = coverageLinks
+        .map((item) => `${item.contractId} (${item.contracts} contrat(s))`)
+        .join(", ");
+      toast(`Suppression refusée : ce put acheté couvre ${linked}. Modifiez d’abord le mode de garantie des puts vendus liés.`, "error");
+      return;
+    }
     const dependencies = Corrections.linkedTransactions(state, transaction);
     let message = `Supprimer cette transaction?\n\n${deletionSummary(transaction)}\n\nCette action recalculera les liquidités, les positions, la marge et les P/L.`;
     if (dependencies.length) {
@@ -1046,6 +1197,11 @@
   }
 
   function handleTransactionAction(event) {
+    const noteButton = event.target.closest("[data-view-note]");
+    if (noteButton) {
+      openTransactionNote(noteButton.dataset.viewNote);
+      return;
+    }
     const editButton = event.target.closest("[data-edit-transaction]");
     if (editButton) {
       const transaction = Corrections.findTransaction(state, editButton.dataset.editTransaction);
@@ -1251,9 +1407,18 @@
     $("#removeDemoButton").addEventListener("click", removeDemo);
     $("#operationType").addEventListener("change", updateOperationFields);
     $("#optionType").addEventListener("change", updateOperationFields);
+    $("#operationSymbol").addEventListener("change", updateOperationFields);
+    $("#optionExpiration").addEventListener("change", updateOperationFields);
     $$('input[name="putCollateralMode"]').forEach((input) => input.addEventListener("change", updateOperationFields));
+    $("#coveringContractId").addEventListener("change", () => {
+      updateCoverageTypePreview();
+      updateOperationPreview();
+    });
     $("#existingContract").addEventListener("change", () => { syncExistingContract(); updateOperationPreview(); });
-    $("#operationForm").addEventListener("input", updateOperationPreview);
+    $("#operationForm").addEventListener("input", (event) => {
+      if (["optionStrike", "optionExpiration"].includes(event.target.id)) updateOperationFields();
+      else updateOperationPreview();
+    });
     $("#operationForm").addEventListener("submit", submitOperation);
     $("#addSecurityButton").addEventListener("click", () => openSecurityModal());
     $("#securityForm").addEventListener("submit", submitSecurity);
