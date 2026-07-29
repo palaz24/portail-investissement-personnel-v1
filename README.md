@@ -1,4 +1,4 @@
-# Portail d’investissement personnel V1.1.1
+# Portail d’investissement personnel V1.2.0
 
 Ce site permet de suivre un petit portefeuille dans un compte sur marge avec des prix automatiques sécurisés et une saisie manuelle de secours.
 
@@ -41,6 +41,19 @@ Pour une utilisation régulière sur plusieurs appareils, utilisez plutôt GitHu
 4. Ajoutez ou modifiez vos titres dans **Gestion des titres**.
 5. Entrez les prix dans **Mise à jour des prix**.
 6. Exportez une sauvegarde privée après vos modifications importantes.
+
+## Choisir la garantie d’un put vendu
+
+Lorsque vous choisissez **Vente d’option à l’ouverture**, puis **PUT**, le portail exige un mode de garantie :
+
+- **Put garanti à 100 %** : le portail réserve le strike × 100 × le nombre de contrats;
+- **Put sur marge — garantie partielle** : le portail estime la garantie avec le taux du titre.
+
+Vous pouvez inscrire facultativement la garantie réelle affichée par Wealthsimple et sa date de vérification. Le portail indique toujours clairement si le montant utilisé est réel ou estimé.
+
+La prime reçue demeure séparée de la garantie. Une fermeture partielle libère seulement la portion fermée. Une expiration libère toute la portion expirée. Une assignation remplace la garantie du put par celle des actions acquises, sans double comptabilisation.
+
+Les détails des formulaires, calculs et sauvegardes sont dans `DOCUMENTATION_GARANTIES_PUTS_V1_2.md`.
 
 ## Corriger ou supprimer une opération
 
@@ -159,14 +172,15 @@ Les tests automatisés se trouvent dans `tests`.
 - `calculations.test.js` vérifie les calculs et les validations.
 - `v1-1.test.js` vérifie les symboles OCC, les prix, la confidentialité et le tri.
 - `v1-1-1.test.js` vérifie la modification, la suppression, l’annulation et l’intégrité chronologique.
+- `v1-2.test.js` vérifie les garanties des puts, les fermetures partielles, l’assignation et la migration.
 - `test-runner.html` affiche les résultats dans le navigateur.
 - `worker-market-prices/tests/worker.test.js` vérifie le Worker, CORS, le cache et la sécurité.
 
 Pour afficher les tests, ouvrez `tests/test-runner.html`.
 
-Résultat de livraison V1.1.1 : **72 anciens tests sur 72 et 25 nouveaux tests sur 25**, soit **97 tests sur 97**.
+Résultat local V1.2.0 : **97 anciens tests sur 97 et 25 nouveaux tests sur 25**, soit **122 tests sur 122**.
 
-## Limites de la V1.1
+## Limites de la V1.2
 
 - Les données gratuites Market Data peuvent être retardées.
 - Une connexion Internet et un Worker Cloudflare configuré sont nécessaires aux prix automatiques.

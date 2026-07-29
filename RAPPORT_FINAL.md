@@ -1,4 +1,14 @@
-# Rapport final — Portail d’investissement personnel V1.1.1
+# Rapport final — Portail d’investissement personnel V1.2.0
+
+## Évolution V1.2.0 — garanties des puts vendus
+
+La V1.2.0 ajoute un choix obligatoire entre un put garanti à 100 % et un put sur marge. Le portail sépare les garanties des actions, des puts garantis à 100 %, des puts sur marge et des autres options courtes.
+
+Les fermetures partielles, expirations et assignations libèrent la garantie au prorata des contrats réellement fermés. Lors d’une assignation, la garantie du put disparaît avant l’application de la garantie des actions, ce qui empêche toute double comptabilisation.
+
+Une garantie réelle Wealthsimple peut être enregistrée avec sa date de vérification. Sans montant réel valide, le portail utilise une estimation clairement identifiée fondée sur le taux du titre. Les anciennes sauvegardes sont migrées et les transactions ambiguës deviennent `REVIEW_REQUIRED`.
+
+Le détail fonctionnel se trouve dans `DOCUMENTATION_GARANTIES_PUTS_V1_2.md`.
 
 ## Correction V1.1.1
 
@@ -25,7 +35,7 @@ Le Worker ne reçoit aucune quantité, transaction, valeur de portefeuille, marg
 
 Créer un portail personnel, simple et moderne pour suivre manuellement un petit portefeuille d’environ 3 000 $ US.
 
-Le portail est entièrement statique. Il ne communique avec aucun serveur, aucune API, aucune base de données externe et aucun courtier. Les données réelles restent dans le navigateur de l’utilisateur.
+Le portail demeure un site statique. Il communique seulement avec le Worker sécurisé pour obtenir des prix de marché; il ne communique avec aucun courtier et n’envoie aucune transaction, position ou valeur de compte. Les données réelles restent dans le navigateur de l’utilisateur.
 
 ## Architecture réalisée
 
@@ -38,13 +48,14 @@ Le projet utilise uniquement :
 - JSON pour les sauvegardes;
 - fichiers statiques compatibles avec GitHub Pages.
 
-La logique est séparée en cinq modules :
+La logique est séparée en modules spécialisés :
 
 1. `app.js` — interface, navigation et rendu;
 2. `calculations.js` — calculs financiers;
-3. `forms.js` — validation des formulaires;
-4. `storage.js` — stockage local;
-5. `backup.js` — sauvegarde et restauration.
+3. `collateral.js` — modes de garantie, calculs et migration;
+4. `forms.js` — validation des formulaires;
+5. `storage.js` — stockage local;
+6. `backup.js` — sauvegarde et restauration.
 
 Une seule fiche générique est alimentée dynamiquement selon le symbole sélectionné. Ford, SPY et les futurs titres utilisent exactement la même structure.
 
@@ -71,7 +82,7 @@ Les principaux livrables sont :
 
 - `index.html`;
 - `css/style.css`;
-- les cinq modules JavaScript;
+- les modules JavaScript spécialisés;
 - `data/demo-data.json`;
 - les tests;
 - `README.md`;
@@ -135,14 +146,14 @@ L’archive finale se nomme `Portail_Investissement_Personnel_V1.zip`. Elle cont
 
 ## Tests exécutés
 
-Les 72 tests de la V1.1 demeurent réussis. La V1.1.1 ajoute 25 tests ciblés, pour 97 contrôles automatisés au total.
+Les 97 tests existants demeurent réussis. La V1.2.0 ajoute 25 tests ciblés, pour 122 contrôles automatisés au total.
 
 Résultats :
 
-- anciens tests : **72 / 72**;
-- nouveaux tests V1.1.1 : **25 / 25**;
-- total : **97 / 97**;
-- portail dans le navigateur : **80 / 80**;
+- anciens tests : **97 / 97**;
+- nouveaux tests V1.2.0 : **25 / 25**;
+- total : **122 / 122**;
+- portail dans le navigateur : **105 / 105**;
 - erreurs JavaScript : **0**.
 
 Les détails sont dans `RESULTATS_TESTS.md`.

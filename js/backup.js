@@ -13,15 +13,29 @@
     return payload;
   }
 
+  function preparePayload(payload) {
+    const migration = globalScope.PortalStorage?.migrateData
+      ? globalScope.PortalStorage.migrateData(payload)
+      : { state: clone(payload), report: { migrated: [], reviewRequired: [] } };
+    migration.state.version = globalScope.PortalStorage?.APP_VERSION || migration.state.version;
+    return { value: migration.state, migrationReport: migration.report };
+  }
+
   function validatePayload(payload) {
+    const prepared = preparePayload(payload);
     const storageValidation = globalScope.PortalStorage
-      ? globalScope.PortalStorage.validateData(payload)
-      : { valid: Boolean(payload && Array.isArray(payload.transactions)), errors: [] };
+      ? globalScope.PortalStorage.validateData(prepared.value)
+      : { valid: Boolean(prepared.value && Array.isArray(prepared.value.transactions)), errors: [] };
     const errors = [...storageValidation.errors];
-    if (!payload.backupCreatedAt && payload.backupReason) {
+    if (!prepared.value.backupCreatedAt && prepared.value.backupReason) {
       errors.push("La date de création de la sauvegarde est absente.");
     }
-    return { valid: errors.length === 0, errors };
+    return {
+      valid: errors.length === 0,
+      errors,
+      value: prepared.value,
+      migrationReport: prepared.migrationReport
+    };
   }
 
   function formatFilename(date = new Date()) {
@@ -58,6 +72,7 @@
 
   const api = {
     createPayload,
+    preparePayload,
     validatePayload,
     formatFilename,
     downloadPayload,

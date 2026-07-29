@@ -1,6 +1,8 @@
 (function initCalculations(globalScope) {
   "use strict";
 
+  const isNode = typeof module !== "undefined" && module.exports;
+  const Collateral = isNode ? require("./collateral.js") : globalScope.PortalCollateral;
   const MULTIPLIER = 100;
   const CASH_TYPES = new Set([
     "DEPOSIT",
@@ -56,6 +58,10 @@
       premiumsReceived: 0,
       fees: 0,
       shortOptionMargin: 0,
+      stockGuarantee: 0,
+      fullySecuredPutGuarantee: 0,
+      marginPutGuarantee: 0,
+      otherShortOptionGuarantee: 0,
       guaranteeRequired: 0,
       capitalEngaged: 0,
       currentValue: 0,
@@ -220,9 +226,19 @@
               strike: number(transaction.strike),
               expiration: transaction.expiration,
               contractsOpen: contracts,
+              originalContracts: contracts,
               openingBasisRemaining: side === "LONG" ? gross + fees : gross - fees,
               openingPremium: number(transaction.premium),
               shortMarginRequirement: side === "SHORT" ? number(transaction.shortMarginRequirement) : 0,
+              putCollateralMode: side === "SHORT" && transaction.optionType === "PUT"
+                ? transaction.putCollateralMode
+                : null,
+              actualMarginRequirement: side === "SHORT" && transaction.optionType === "PUT"
+                ? transaction.actualMarginRequirement ?? null
+                : null,
+              marginRequirementCheckedAt: side === "SHORT" && transaction.optionType === "PUT"
+                ? transaction.marginRequirementCheckedAt || null
+                : null,
               openedOn: transaction.date
             });
             if (side === "SHORT") ledger.premiumsReceived += gross;
@@ -318,6 +334,10 @@
     let longOptionsValue = 0;
     let shortOptionsLiability = 0;
     let guaranteeRequired = 0;
+    let stockGuarantee = 0;
+    let fullySecuredPutGuarantee = 0;
+    let marginPutGuarantee = 0;
+    let otherShortOptionGuarantee = 0;
     let realizedSecurities = 0;
     let unrealizedTotal = 0;
     let dividendsNet = 0;
@@ -349,7 +369,38 @@
         if (option.side === "LONG") longOptionsValue += currentValue;
         else {
           shortOptionsLiability += currentValue;
-          ledger.shortOptionMargin += option.shortMarginRequirement;
+          if (option.optionType === "PUT") {
+            const collateral = Collateral.calculatePutCollateral(
+              option,
+              ledger.marginRequirement,
+              option.contractsOpen
+            );
+            Object.assign(position, {
+              collateralAmount: collateral.amount,
+              collateralSource: collateral.source,
+              collateralLabel: collateral.label,
+              collateralMarginRate: collateral.marginRate,
+              collateralCheckedAt: collateral.checkedAt,
+              collateralReplacedInvalidActual: Boolean(collateral.replacedInvalidActual)
+            });
+            if (option.putCollateralMode === Collateral.FULLY_SECURED) {
+              ledger.fullySecuredPutGuarantee += collateral.amount;
+            } else {
+              ledger.marginPutGuarantee += collateral.amount;
+            }
+            ledger.shortOptionMargin += collateral.amount;
+          } else {
+            const originalContracts = number(option.originalContracts, option.contractsOpen);
+            const ratio = originalContracts > 0 ? option.contractsOpen / originalContracts : 0;
+            const amount = number(option.shortMarginRequirement) * ratio;
+            ledger.otherShortOptionGuarantee += amount;
+            ledger.shortOptionMargin += amount;
+            Object.assign(position, {
+              collateralAmount: roundMoney(amount),
+              collateralSource: "MANUAL_OTHER_SHORT",
+              collateralLabel: "Manuelle"
+            });
+          }
         }
       }
 
@@ -357,7 +408,8 @@
       ledger.unrealizedPL = ledger.unrealizedStock + ledger.unrealizedOptions;
       ledger.economicPL = ledger.realizedPL + ledger.unrealizedPL;
       ledger.revenues = ledger.premiumsReceived + ledger.dividendsNet;
-      ledger.guaranteeRequired = ledger.stockValue * ledger.marginRequirement + ledger.shortOptionMargin;
+      ledger.stockGuarantee = ledger.stockValue * ledger.marginRequirement;
+      ledger.guaranteeRequired = ledger.stockGuarantee + ledger.shortOptionMargin;
       ledger.capitalEngaged = ledger.stockBookValue
         + ledger.optionsOpen.filter((option) => option.side === "LONG")
           .reduce((sum, option) => sum + option.openingBasisRemaining, 0)
@@ -373,6 +425,10 @@
           : "Faible";
 
       stocksValue += ledger.stockValue;
+      stockGuarantee += ledger.stockGuarantee;
+      fullySecuredPutGuarantee += ledger.fullySecuredPutGuarantee;
+      marginPutGuarantee += ledger.marginPutGuarantee;
+      otherShortOptionGuarantee += ledger.otherShortOptionGuarantee;
       guaranteeRequired += ledger.guaranteeRequired;
       realizedSecurities += ledger.realizedPL;
       unrealizedTotal += ledger.unrealizedPL;
@@ -396,6 +452,10 @@
         shortOptionsLiability: roundMoney(shortOptionsLiability),
         totalValue: roundMoney(totalValue),
         marginUsed: roundMoney(marginUsed),
+        stockGuarantee: roundMoney(stockGuarantee),
+        fullySecuredPutGuarantee: roundMoney(fullySecuredPutGuarantee),
+        marginPutGuarantee: roundMoney(marginPutGuarantee),
+        otherShortOptionGuarantee: roundMoney(otherShortOptionGuarantee),
         guaranteeRequired: roundMoney(guaranteeRequired),
         marginAvailable: roundMoney(marginAvailable),
         premiumsReceived: roundMoney(premiumsReceived),
@@ -415,6 +475,10 @@
         stockValue: roundMoney(ledger.stockValue),
         capitalEngaged: roundMoney(ledger.capitalEngaged),
         currentValue: roundMoney(ledger.currentValue),
+        stockGuarantee: roundMoney(ledger.stockGuarantee),
+        fullySecuredPutGuarantee: roundMoney(ledger.fullySecuredPutGuarantee),
+        marginPutGuarantee: roundMoney(ledger.marginPutGuarantee),
+        otherShortOptionGuarantee: roundMoney(ledger.otherShortOptionGuarantee),
         guaranteeRequired: roundMoney(ledger.guaranteeRequired),
         premiumsReceived: roundMoney(ledger.premiumsReceived),
         dividendsNet: roundMoney(ledger.dividendsNet),

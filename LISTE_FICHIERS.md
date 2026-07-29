@@ -9,6 +9,7 @@ Portail_Investissement_Personnel_V1/
 ├── RAPPORT_FINAL.md
 ├── RESULTATS_TESTS.md
 ├── LISTE_FICHIERS.md
+├── DOCUMENTATION_GARANTIES_PUTS_V1_2.md
 ├── css/
 │   └── style.css
 ├── data/
@@ -17,6 +18,7 @@ Portail_Investissement_Personnel_V1/
 │   ├── app.js
 │   ├── backup.js
 │   ├── calculations.js
+│   ├── collateral.js
 │   ├── forms.js
 │   ├── history-utils.js
 │   ├── market-data.js
@@ -26,6 +28,7 @@ Portail_Investissement_Personnel_V1/
     ├── calculations.test.js
     ├── v1-1.test.js
     ├── v1-1-1.test.js
+    ├── v1-2.test.js
     └── test-runner.html
 ├── DEPANNAGE_PRIX_AUTOMATIQUES.md
 └── worker-market-prices/
@@ -42,6 +45,7 @@ Portail_Investissement_Personnel_V1/
 - `css/style.css` : design sombre, responsive et accessible.
 - `js/app.js` : navigation et affichage.
 - `js/calculations.js` : calculs financiers.
+- `js/collateral.js` : modes de garantie, calculs proportionnels et migration.
 - `js/forms.js` : validations et règles de saisie.
 - `js/storage.js` : stockage local et données fictives.
 - `js/transaction-corrections.js` : corrections atomiques, annulation et intégrité chronologique.
@@ -52,7 +56,8 @@ Portail_Investissement_Personnel_V1/
 - `tests/calculations.test.js` : 34 tests automatisés.
 - `tests/v1-1.test.js` : 21 tests supplémentaires du portail.
 - `tests/v1-1-1.test.js` : 25 tests de correction sécurisée.
-- `tests/test-runner.html` : affichage des 80 tests du portail dans un navigateur.
+- `tests/v1-2.test.js` : 25 tests de garantie des puts vendus.
+- `tests/test-runner.html` : affichage des 105 tests du portail dans un navigateur.
 - `worker-market-prices` : Worker Cloudflare et 17 tests de sécurité.
 - `README.md` : instructions simples d’utilisation et de publication.
 - `RAPPORT_FINAL.md` : rapport complet de livraison.

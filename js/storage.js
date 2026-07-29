@@ -1,9 +1,11 @@
 (function initStorage(globalScope) {
   "use strict";
 
+  const isNode = typeof module !== "undefined" && module.exports;
+  const Collateral = isNode ? require("./collateral.js") : globalScope.PortalCollateral;
   const STORAGE_KEY = "portailInvestissementV1";
   const UNDO_STORAGE_KEY = "portailInvestissementV1Undo";
-  const APP_VERSION = "1.1.1";
+  const APP_VERSION = "1.2.0";
 
   function clone(value) {
     return JSON.parse(JSON.stringify(value));
@@ -232,8 +234,10 @@
     if (!raw) return getDemoData();
     try {
       const parsed = JSON.parse(raw);
-      const validation = validateData(parsed);
-      return validation.valid ? parsed : getDemoData();
+      const migration = Collateral.migrateState(parsed);
+      migration.state.version = APP_VERSION;
+      const validation = validateData(migration.state);
+      return validation.valid ? migration.state : getDemoData();
     } catch {
       return getDemoData();
     }
@@ -305,7 +309,9 @@
       const raw = globalScope.localStorage?.getItem(UNDO_STORAGE_KEY);
       if (!raw) return null;
       const parsed = JSON.parse(raw);
-      return validateData(parsed).valid ? parsed : null;
+      const migration = Collateral.migrateState(parsed);
+      migration.state.version = APP_VERSION;
+      return validateData(migration.state).valid ? migration.state : null;
     } catch {
       return null;
     }
@@ -326,6 +332,7 @@
     getDemoData,
     getEmptyData,
     validateData,
+    migrateData: Collateral.migrateState,
     load,
     save,
     savePriceUpdate,

@@ -1,6 +1,7 @@
 (function initApp() {
   "use strict";
 
+  const Collateral = window.PortalCollateral;
   const Calc = window.PortalCalculations;
   const Storage = window.PortalStorage;
   const Forms = window.PortalForms;
@@ -376,7 +377,11 @@
       kpiCard("Valeur totale", formatMoney(account.totalValue), { hint: "Portefeuille", tone: "accent" }),
       kpiCard("Liquidités", formatMoney(account.cash), { valueClass: valueClass(account.cash) }),
       kpiCard("Marge utilisée", formatMoney(account.marginUsed), { hint: "Liquidités négatives" }),
-      kpiCard("Garantie requise", formatMoney(account.guaranteeRequired)),
+      kpiCard("Garantie des actions", formatMoney(account.stockGuarantee)),
+      kpiCard("Puts garantis à 100 %", formatMoney(account.fullySecuredPutGuarantee)),
+      kpiCard("Puts sur marge", formatMoney(account.marginPutGuarantee)),
+      kpiCard("Autres options courtes", formatMoney(account.otherShortOptionGuarantee)),
+      kpiCard("Garantie totale", formatMoney(account.guaranteeRequired), { tone: "accent" }),
       kpiCard("Marge disponible", formatMoney(account.marginAvailable), { valueClass: valueClass(account.marginAvailable) }),
       kpiCard("Primes reçues", formatMoney(account.premiumsReceived), { valueClass: "positive" }),
       kpiCard("Dividendes nets", formatMoney(account.dividendsNet), { valueClass: "positive" }),
@@ -474,6 +479,26 @@
       if (days < 0) {
         alerts.push({ level: "danger", icon: "!", title: `Option échue — ${option.symbol}`, message: "Enregistrez l’expiration, l’assignation ou l’exercice." });
       }
+      if (option.side === "SHORT" && option.optionType === "PUT") {
+        if (!Collateral.VALID_MODES.has(option.putCollateralMode)) {
+          alerts.push({ level: "danger", icon: "!", title: "Mode de garantie manquant", message: `Le put ${option.contractId} doit être vérifié.` });
+        }
+        if (option.putCollateralMode === Collateral.MARGIN_PARTIAL && !(option.collateralMarginRate > 0)) {
+          alerts.push({ level: "danger", icon: "!", title: "Taux de marge du titre manquant", message: `Ajoutez un taux valide pour ${option.symbol}.` });
+        }
+        if (Number(option.actualMarginRequirement) < 0) {
+          alerts.push({ level: "danger", icon: "!", title: "Garantie réelle inférieure à zéro", message: `Corrigez le contrat ${option.contractId}.` });
+        }
+        if (option.collateralReplacedInvalidActual) {
+          alerts.push({ level: "warning", icon: "○", title: "Garantie réelle remplacée par une estimation", message: `Le contrat ${option.contractId} utilise temporairement le taux du titre.` });
+        }
+        if (option.collateralSource === "ACTUAL_WEALTHSIMPLE" && option.collateralCheckedAt) {
+          const ageDays = (Date.now() - new Date(`${option.collateralCheckedAt}T12:00:00`).getTime()) / 86400000;
+          if (ageDays > 30) {
+            alerts.push({ level: "warning", icon: "◷", title: "Garantie réelle non vérifiée depuis plus de 30 jours", message: `Dernière vérification du contrat ${option.contractId} : ${formatDate(option.collateralCheckedAt)}.` });
+          }
+        }
+      }
     }
     for (const error of derived.errors) {
       alerts.push({ level: "danger", icon: "!", title: "Transaction à vérifier", message: error.message });
@@ -539,9 +564,19 @@
           : "Aucune option ouverte ni exigence particulière n’est détectée."}</p>`;
 
     $("#securityOptionsBody").innerHTML = security.optionsOpen.length
-      ? security.optionsOpen.map((option) => `
-        <tr><td><code>${escapeHtml(option.contractId)}</code></td><td>${option.side === "SHORT" ? "Courte" : "Longue"} ${escapeHtml(option.optionType)}</td><td>${formatDate(option.expiration)}</td><td>${formatMoney(option.strike)}</td><td>${option.contractsOpen}</td><td>${formatMoney(option.currentPrice)}</td><td class="${valueClass(option.unrealizedPL)}">${formatMoney(option.unrealizedPL)}</td></tr>`).join("")
-      : emptyRow(7, "Aucune option ouverte pour ce titre.");
+      ? security.optionsOpen.map((option) => {
+        const isPutShort = option.side === "SHORT" && option.optionType === "PUT";
+        const mode = isPutShort
+          ? option.putCollateralMode === Collateral.FULLY_SECURED
+            ? "Put garanti à 100 %"
+            : option.putCollateralMode === Collateral.MARGIN_PARTIAL
+              ? "Put sur marge"
+              : "À vérifier"
+          : "—";
+        return `
+        <tr><td><code>${escapeHtml(option.contractId)}</code></td><td>${option.side === "SHORT" ? "Courte" : "Longue"} ${escapeHtml(option.optionType)}</td><td>${formatDate(option.expiration)}</td><td>${formatMoney(option.strike)}</td><td>${option.contractsOpen}</td><td>${escapeHtml(mode)}</td><td>${isPutShort ? formatMoney(option.collateralAmount) : "—"}</td><td>${isPutShort ? escapeHtml(option.collateralLabel) : "—"}</td><td>${isPutShort ? formatDate(option.collateralCheckedAt) : "—"}</td><td>${formatMoney(option.currentPrice)}</td><td class="${valueClass(option.unrealizedPL)}">${formatMoney(option.unrealizedPL)}</td></tr>`;
+      }).join("")
+      : emptyRow(11, "Aucune option ouverte pour ce titre.");
 
     const transactions = History.sortHistoricalDescending(
       state.transactions.filter((transaction) => transaction.symbol === selectedSymbol)
@@ -712,6 +747,11 @@
     $("#operationFees").value = String(transaction?.fees ?? 0);
     $("#dividendTax").value = String(transaction?.taxWithheld ?? 0);
     $("#shortMarginRequirement").value = String(transaction?.shortMarginRequirement ?? 0);
+    $("#actualMarginRequirement").value = transaction?.actualMarginRequirement ?? "";
+    $("#marginRequirementCheckedAt").value = transaction?.marginRequirementCheckedAt || "";
+    $$('input[name="putCollateralMode"]').forEach((input) => {
+      input.checked = input.value === transaction?.putCollateralMode;
+    });
     showErrors($("#operationErrors"), []);
     updateOperationFields();
     if (transaction) {
@@ -729,10 +769,16 @@
       setOperationField("#optionContracts", transaction.contracts);
       setOperationField("#optionPremium", transaction.premium);
       setOperationField("#shortMarginRequirement", transaction.shortMarginRequirement ?? 0);
+      setOperationField("#actualMarginRequirement", transaction.actualMarginRequirement);
+      setOperationField("#marginRequirementCheckedAt", transaction.marginRequirementCheckedAt);
+      $$('input[name="putCollateralMode"]').forEach((input) => {
+        input.checked = input.value === transaction.putCollateralMode;
+      });
       setOperationField("#dividendGross", transaction.grossAmount);
       setOperationField("#dividendTax", transaction.taxWithheld ?? 0);
       setOperationField("#operationFees", transaction.fees ?? 0);
       setOperationField("#operationNote", transaction.note || "");
+      updateOperationFields();
     }
     updateOperationPreview();
     openModal("operationModal");
@@ -755,6 +801,8 @@
     const close = Forms.OPTION_CLOSE_TYPES.has(type);
     const event = Forms.OPTION_EVENT_TYPES.has(type);
     const option = open || close || event;
+    const soldPut = type === "OPTION_SELL_OPEN" && $("#optionType").value === "PUT";
+    const collateralMode = $('input[name="putCollateralMode"]:checked')?.value || "";
 
     $$("[data-operation-group]").forEach((field) => {
       const group = field.dataset.operationGroup;
@@ -766,7 +814,9 @@
         || (group === "option-existing" && (close || event))
         || (group === "option" && option)
         || (group === "option-premium" && (open || close))
-        || (group === "short-margin" && type === "OPTION_SELL_OPEN")
+        || (group === "put-collateral" && soldPut)
+        || (group === "put-margin-actual" && soldPut && collateralMode === Collateral.MARGIN_PARTIAL)
+        || (group === "short-margin" && type === "OPTION_SELL_OPEN" && !soldPut)
         || (group === "dividend" && type === "DIVIDEND")
         || (group === "fees" && (stock || option));
       field.hidden = !visible;
@@ -800,6 +850,25 @@
     } else if (Forms.OPTION_OPEN_TYPES.has(type) || Forms.OPTION_CLOSE_TYPES.has(type)) {
       const amount = (Number($("#optionContracts").value) || 0) * (Number($("#optionPremium").value) || 0) * 100;
       message = `Flux brut estimé : ${formatMoney(amount)} (${formatNumber(Number($("#optionPremium").value) || 0, 4)} × 100 × ${Number($("#optionContracts").value) || 0})`;
+      if (type === "OPTION_SELL_OPEN" && $("#optionType").value === "PUT") {
+        const mode = $('input[name="putCollateralMode"]:checked')?.value;
+        if (!mode) {
+          message += " — Choisissez obligatoirement un mode de garantie.";
+        } else {
+          const symbol = $("#operationSymbol").value;
+          const rate = Collateral.marginRateFor(state, symbol);
+          const collateral = Collateral.calculatePutCollateral({
+            strike: Number($("#optionStrike").value),
+            contracts: Number($("#optionContracts").value),
+            originalContracts: Number($("#optionContracts").value),
+            putCollateralMode: mode,
+            actualMarginRequirement: $("#actualMarginRequirement").value,
+            marginRequirementCheckedAt: $("#marginRequirementCheckedAt").value
+          }, rate);
+          const modeLabel = mode === Collateral.FULLY_SECURED ? "Put garanti à 100 %" : "Put sur marge";
+          message += ` — Mode : ${modeLabel}. Garantie utilisée : ${formatMoney(collateral.amount)}. Source : ${collateral.label}.`;
+        }
+      }
     } else if (type === "DIVIDEND") {
       const net = (Number($("#dividendGross").value) || 0) - (Number($("#dividendTax").value) || 0);
       message = `Dividende net estimé : ${formatMoney(net)}`;
@@ -839,7 +908,17 @@
       transaction.contracts = Number($("#optionContracts").value);
       transaction.premium = Number($("#optionPremium").value);
       transaction.fees = Number($("#operationFees").value || 0);
-      transaction.shortMarginRequirement = type === "OPTION_SELL_OPEN" ? Number($("#shortMarginRequirement").value || 0) : 0;
+      const soldPut = type === "OPTION_SELL_OPEN" && transaction.optionType === "PUT";
+      transaction.shortMarginRequirement = type === "OPTION_SELL_OPEN" && !soldPut
+        ? Number($("#shortMarginRequirement").value || 0)
+        : 0;
+      if (soldPut) {
+        transaction.putCollateralMode = $('input[name="putCollateralMode"]:checked')?.value || "";
+        transaction.actualMarginRequirement = $("#actualMarginRequirement").value === ""
+          ? null
+          : Number($("#actualMarginRequirement").value);
+        transaction.marginRequirementCheckedAt = $("#marginRequirementCheckedAt").value || null;
+      }
       const candidateWithOriginalContract = { ...transaction, contractId: original?.contractId };
       const preserveContractId = original && Forms.OPTION_OPEN_TYPES.has(original.type)
         && !Corrections.openingIdentityChanged(original, candidateWithOriginalContract);
@@ -1062,16 +1141,24 @@
 
       const rescue = Backup.createPayload(state, "AUTOMATIC_RESCUE_BEFORE_RESTORE");
       Backup.downloadPayload(rescue, `SECOURS_AVANT_RESTAURATION_${Backup.formatFilename()}`);
+      const migration = validation.migrationReport || { migrated: [], reviewRequired: [] };
+      const migrationSummary = [
+        migration.migrated.length ? `${migration.migrated.length} ancien(s) put(s) migré(s) vers une garantie réelle existante.` : "",
+        migration.reviewRequired.length ? `${migration.reviewRequired.length} put(s) exige(nt) votre choix de garantie.` : ""
+      ].filter(Boolean).join("\n");
       const confirmed = window.confirm(
-        `Le fichier est valide et contient ${payload.transactions.length} transaction(s).\n\nUne sauvegarde de secours vient d’être téléchargée. Voulez-vous remplacer les données actuelles?`
+        `Le fichier est valide et contient ${validation.value.transactions.length} transaction(s).\n${migrationSummary ? `\n${migrationSummary}\n` : ""}\nUne sauvegarde de secours vient d’être téléchargée. Voulez-vous remplacer les données actuelles?`
       );
       if (!confirmed) return;
-      state = Storage.clone(payload);
+      state = Storage.clone(validation.value);
       delete state.backupCreatedAt;
       delete state.backupReason;
       if (saveState("BACKUP_RESTORED")) {
         selectedSymbol = state.securities.find((security) => security.active)?.symbol || "";
-        toast("La sauvegarde a été restaurée.");
+        const reviewCount = validation.migrationReport?.reviewRequired?.length || 0;
+        toast(reviewCount
+          ? `La sauvegarde a été restaurée. ${reviewCount} put(s) doivent être vérifiés.`
+          : "La sauvegarde a été restaurée.");
         switchView("dashboard");
       }
     } catch (error) {
@@ -1163,6 +1250,8 @@
     $("#refreshMarketPrices").addEventListener("click", () => refreshMarketPrices({ manual: true }));
     $("#removeDemoButton").addEventListener("click", removeDemo);
     $("#operationType").addEventListener("change", updateOperationFields);
+    $("#optionType").addEventListener("change", updateOperationFields);
+    $$('input[name="putCollateralMode"]').forEach((input) => input.addEventListener("change", updateOperationFields));
     $("#existingContract").addEventListener("change", () => { syncExistingContract(); updateOperationPreview(); });
     $("#operationForm").addEventListener("input", updateOperationPreview);
     $("#operationForm").addEventListener("submit", submitOperation);

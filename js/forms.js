@@ -1,6 +1,8 @@
 (function initForms(globalScope) {
   "use strict";
 
+  const isNode = typeof module !== "undefined" && module.exports;
+  const Collateral = isNode ? require("./collateral.js") : globalScope.PortalCollateral;
   const ACCOUNT_TYPES = new Set([
     "DEPOSIT",
     "WITHDRAWAL",
@@ -116,7 +118,31 @@
       if (!Number.isFinite(strike) || strike <= 0) errors.push("Le prix d’exercice doit être supérieur à zéro.");
       if (!Number.isInteger(contracts) || contracts <= 0) errors.push("Le nombre de contrats doit être un entier supérieur à zéro.");
       if (!Number.isFinite(premium) || premium < 0) errors.push("La prime ne peut pas être négative.");
-      if (type === "OPTION_SELL_OPEN") {
+      if (type === "OPTION_SELL_OPEN" && transaction.optionType === "PUT") {
+        if (!Collateral.VALID_MODES.has(transaction.putCollateralMode)) {
+          errors.push("Choisissez le mode de garantie du put vendu.");
+        }
+        if (transaction.putCollateralMode === Collateral.MARGIN_PARTIAL) {
+          const security = (state.securities || []).find((item) => item.symbol === symbol);
+          const rate = number(security?.marginRequirement);
+          if (!Number.isFinite(rate) || rate <= 0 || rate > 1) {
+            errors.push("Le taux de marge du titre est manquant ou invalide.");
+          }
+          const hasActual = transaction.actualMarginRequirement !== ""
+            && transaction.actualMarginRequirement != null;
+          if (hasActual) {
+            const actual = number(transaction.actualMarginRequirement);
+            if (!Number.isFinite(actual) || actual <= 0) {
+              errors.push("La garantie réelle Wealthsimple doit être supérieure à zéro.");
+            }
+            if (!isValidDate(transaction.marginRequirementCheckedAt)) {
+              errors.push("La date de vérification de la garantie réelle est obligatoire.");
+            }
+          } else if (transaction.marginRequirementCheckedAt) {
+            errors.push("Une date de vérification exige un montant de garantie réelle.");
+          }
+        }
+      } else if (type === "OPTION_SELL_OPEN") {
         const margin = number(transaction.shortMarginRequirement || 0);
         if (!Number.isFinite(margin) || margin < 0) errors.push("L’exigence de marge de l’option est invalide.");
       }

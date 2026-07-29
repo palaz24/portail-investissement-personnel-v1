@@ -664,6 +664,31 @@ input:disabled { opacity: 0.7; cursor: not-allowed; }
 .empty-state p { margin: 5px 0 0; font-size: 0.75rem; }
 .sidebar-overlay { position: fixed; inset: 0; z-index: 80; background: rgba(0, 0, 0, 0.55); }
 
+.collateral-choice {
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.collateral-choice legend {
+  padding: 0 6px;
+  font-weight: 700;
+}
+
+.collateral-choice .radio-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+}
+
+.collateral-choice input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+}
+
 @media (max-width: 1380px) {
   .kpi-grid { grid-template-columns: repeat(4, minmax(145px, 1fr)); }
 }
