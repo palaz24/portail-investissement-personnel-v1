@@ -1,4 +1,4 @@
-# Portail d’investissement personnel V1.1
+# Portail d’investissement personnel V1.1.1
 
 Ce site permet de suivre un petit portefeuille dans un compte sur marge avec des prix automatiques sécurisés et une saisie manuelle de secours.
 
@@ -41,6 +41,16 @@ Pour une utilisation régulière sur plusieurs appareils, utilisez plutôt GitHu
 4. Ajoutez ou modifiez vos titres dans **Gestion des titres**.
 5. Entrez les prix dans **Mise à jour des prix**.
 6. Exportez une sauvegarde privée après vos modifications importantes.
+
+## Corriger ou supprimer une opération
+
+Dans **Opérations**, chaque ligne possède maintenant les boutons **Modifier** et **Supprimer**.
+
+- **Modifier** ouvre le formulaire déjà rempli et conserve l’identifiant original.
+- **Supprimer** présente un résumé clair avant toute suppression.
+- **Annuler la dernière correction** rétablit immédiatement la dernière modification ou suppression.
+- Les opérations liées à un contrat d’option sont corrigées ou supprimées ensemble après une confirmation explicite.
+- Le portail refuse une correction qui rendrait l’historique impossible, par exemple une vente avant l’achat ou une fermeture avant l’ouverture du contrat.
 
 ## Ajouter une opération
 
@@ -148,12 +158,13 @@ Les tests automatisés se trouvent dans `tests`.
 
 - `calculations.test.js` vérifie les calculs et les validations.
 - `v1-1.test.js` vérifie les symboles OCC, les prix, la confidentialité et le tri.
+- `v1-1-1.test.js` vérifie la modification, la suppression, l’annulation et l’intégrité chronologique.
 - `test-runner.html` affiche les résultats dans le navigateur.
 - `worker-market-prices/tests/worker.test.js` vérifie le Worker, CORS, le cache et la sécurité.
 
 Pour afficher les tests, ouvrez `tests/test-runner.html`.
 
-Résultat de livraison V1.1 : **34 anciens tests sur 34 et 38 nouveaux tests sur 38**.
+Résultat de livraison V1.1.1 : **72 anciens tests sur 72 et 25 nouveaux tests sur 25**, soit **97 tests sur 97**.
 
 ## Limites de la V1.1
 

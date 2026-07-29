@@ -23,6 +23,17 @@
     return JSON.parse(JSON.stringify(value));
   }
 
+  function compareTransactionsChronologically(a, b) {
+    const byDate = String(a?.date || "").localeCompare(String(b?.date || ""));
+    if (byDate) return byDate;
+    const byCreatedAt = String(a?.createdAt || "").localeCompare(String(b?.createdAt || ""));
+    if (byCreatedAt) return byCreatedAt;
+    return String(a?.id || "").localeCompare(String(b?.id || ""), undefined, {
+      numeric: true,
+      sensitivity: "base"
+    });
+  }
+
   function createSecurityLedger(security) {
     return {
       symbol: security.symbol,
@@ -158,7 +169,7 @@
 
     const transactions = (data.transactions || [])
       .map((transaction, index) => ({ ...transaction, _index: index }))
-      .sort((a, b) => String(a.date).localeCompare(String(b.date)) || a._index - b._index);
+      .sort((a, b) => compareTransactionsChronologically(a, b) || a._index - b._index);
 
     for (const transaction of transactions) {
       const symbol = String(transaction.symbol || "").toUpperCase();
@@ -420,6 +431,7 @@
   const api = {
     MULTIPLIER,
     calculatePortfolio,
+    compareTransactionsChronologically,
     transactionCashFlow,
     roundMoney
   };

@@ -1,4 +1,8 @@
-# Rapport final — Portail d’investissement personnel V1.1
+# Rapport final — Portail d’investissement personnel V1.1.1
+
+## Correction V1.1.1
+
+La V1.1.1 permet de modifier et de supprimer une transaction de façon sécurisée. Elle ajoute une annulation immédiate, protège les relations entre l’ouverture et la fermeture des options, recalcule tout l’historique et refuse une correction qui créerait une incohérence chronologique. Le Worker de prix n’a pas été modifié ni redéployé.
 
 ## Mise à niveau V1.1
 
@@ -86,6 +90,10 @@ L’archive finale se nomme `Portail_Investissement_Personnel_V1.zip`. Elle cont
 - Fiche générique pour Ford, SPY et les futurs titres.
 - Ajout et modification des titres.
 - Saisie manuelle de 15 types d’opérations.
+- Modification et suppression sécurisées des opérations.
+- Annulation immédiate de la dernière correction.
+- Correction groupée des contrats d’options et de leurs opérations liées.
+- Validation chronologique complète avant chaque correction.
 - Mise à jour manuelle des prix des actions, FNB et options.
 - Assignations PUT et CALL avec confirmation.
 - Stockage automatique après chaque modification.
@@ -127,12 +135,14 @@ L’archive finale se nomme `Portail_Investissement_Personnel_V1.zip`. Elle cont
 
 ## Tests exécutés
 
-Les 34 tests historiques possèdent chacun un résultat attendu explicite et demeurent réussis. La V1.1 ajoute 21 tests du portail et 17 tests du Worker, pour 72 contrôles automatisés au total.
+Les 72 tests de la V1.1 demeurent réussis. La V1.1.1 ajoute 25 tests ciblés, pour 97 contrôles automatisés au total.
 
 Résultats :
 
-- moteur JavaScript : **34 / 34**;
-- navigateur : **34 / 34**;
+- anciens tests : **72 / 72**;
+- nouveaux tests V1.1.1 : **25 / 25**;
+- total : **97 / 97**;
+- portail dans le navigateur : **80 / 80**;
 - erreurs JavaScript : **0**.
 
 Les détails sont dans `RESULTATS_TESTS.md`.

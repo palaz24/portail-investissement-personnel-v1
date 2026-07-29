@@ -2,7 +2,8 @@
   "use strict";
 
   const STORAGE_KEY = "portailInvestissementV1";
-  const APP_VERSION = "1.1.0";
+  const UNDO_STORAGE_KEY = "portailInvestissementV1Undo";
+  const APP_VERSION = "1.1.1";
 
   function clone(value) {
     return JSON.parse(JSON.stringify(value));
@@ -238,16 +239,18 @@
     }
   }
 
-  function save(data, action = "AUTO_SAVE") {
+  function save(data, action = "AUTO_SAVE", metadata = {}) {
     const next = clone(data);
     next.version = APP_VERSION;
     next.updatedAt = new Date().toISOString();
     next.history = Array.isArray(next.history) ? next.history.slice(-49) : [];
-    next.history.push({
+    const historyEvent = {
       id: `HIST-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
       at: next.updatedAt,
       action
-    });
+    };
+    if (metadata.transactionId) historyEvent.transactionId = String(metadata.transactionId);
+    next.history.push(historyEvent);
     const validation = validateData(next);
     if (!validation.valid) {
       throw new Error(validation.errors.join(" "));
@@ -281,8 +284,44 @@
     }
   }
 
+  function safeWriteUndo(value) {
+    try {
+      globalScope.localStorage?.setItem(UNDO_STORAGE_KEY, value);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function saveUndo(data) {
+    if (!safeWriteUndo(JSON.stringify(clone(data)))) {
+      throw new Error("Le navigateur n’a pas permis de préparer l’annulation.");
+    }
+    return true;
+  }
+
+  function loadUndo() {
+    try {
+      const raw = globalScope.localStorage?.getItem(UNDO_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return validateData(parsed).valid ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function clearUndo() {
+    try {
+      globalScope.localStorage?.removeItem(UNDO_STORAGE_KEY);
+      return true;
+    } catch {
+      return false;
+    }
+  }
   const api = {
     STORAGE_KEY,
+    UNDO_STORAGE_KEY,
     APP_VERSION,
     getDemoData,
     getEmptyData,
@@ -290,6 +329,9 @@
     load,
     save,
     savePriceUpdate,
+    saveUndo,
+    loadUndo,
+    clearUndo,
     clear,
     clone
   };

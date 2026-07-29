@@ -4,6 +4,7 @@
   const Calc = window.PortalCalculations;
   const Storage = window.PortalStorage;
   const Forms = window.PortalForms;
+  const Corrections = window.PortalTransactionCorrections;
   const Backup = window.PortalBackup;
   const History = window.PortalHistory;
   const Market = window.PortalMarketData;
@@ -15,6 +16,9 @@
   let marketMeta = Market.readMeta();
   let marketRefreshPromise = null;
   let automaticRefreshTimer = null;
+  let operationMode = "ADD";
+  let editingTransactionId = null;
+  let operationContextDerived = derived;
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -173,6 +177,7 @@
   function saveState(action) {
     try {
       state = Storage.save(state, action);
+      Storage.clearUndo();
       derived = Calc.calculatePortfolio(state);
       renderAll();
       $("#saveState").textContent = "● Sauvegarde locale à jour";
@@ -184,6 +189,53 @@
     }
   }
 
+  function commitCorrection(nextState, action, transactionId) {
+    const previous = Storage.clone(state);
+    const persisted = Corrections.persistWithRollback(previous, nextState, {
+      readUndo: Storage.loadUndo,
+      writeUndo: Storage.saveUndo,
+      clearUndo: Storage.clearUndo,
+      save: (candidate) => Storage.save(candidate, action, { transactionId })
+    });
+    if (!persisted.ok) {
+      state = previous;
+      derived = Calc.calculatePortfolio(state);
+      renderAll();
+      $("#saveState").textContent = "● Erreur de sauvegarde";
+      toast(`La correction a été annulée : ${persisted.error?.message || "erreur de sauvegarde"}`, "error");
+      return false;
+    }
+    state = persisted.state;
+    derived = Calc.calculatePortfolio(state);
+    renderAll();
+    $("#saveState").textContent = "● Sauvegarde locale à jour";
+    return true;
+  }
+
+  function undoLastCorrection() {
+    const snapshot = Storage.loadUndo();
+    if (!snapshot) {
+      toast("Aucune correction ne peut être annulée.", "error");
+      renderUndoAvailability();
+      return;
+    }
+    const current = Storage.clone(state);
+    const transactionId = current.history?.[current.history.length - 1]?.transactionId || "";
+    try {
+      state = Storage.save(snapshot, "TRANSACTION_CHANGE_UNDONE", { transactionId });
+      Storage.clearUndo();
+      derived = Calc.calculatePortfolio(state);
+      renderAll();
+      $("#saveState").textContent = "● Sauvegarde locale à jour";
+      toast("La dernière correction a été annulée.");
+      refreshMarketPrices({ manual: false });
+    } catch (error) {
+      state = current;
+      derived = Calc.calculatePortfolio(state);
+      renderAll();
+      toast(`L’annulation a échoué : ${error.message}`, "error");
+    }
+  }
   async function refreshMarketPrices({ manual = false } = {}) {
     const settings = getMarketSettings();
     const now = Date.now();
@@ -495,8 +547,15 @@
       state.transactions.filter((transaction) => transaction.symbol === selectedSymbol)
     ).slice(0, 12);
     $("#securityTransactionsBody").innerHTML = transactions.length
-      ? transactions.map((transaction) => `<tr><td>${formatDate(transaction.date)}</td><td>${escapeHtml(Forms.TYPE_LABELS[transaction.type] || transaction.type)}</td><td>${transactionDetails(transaction)}</td><td>${escapeHtml(transaction.note || "—")}</td></tr>`).join("")
-      : emptyRow(4, "Aucune transaction pour ce titre.");
+      ? transactions.map((transaction) => `<tr><td>${formatDate(transaction.date)}</td><td>${escapeHtml(Forms.TYPE_LABELS[transaction.type] || transaction.type)}</td><td>${transactionDetails(transaction)}</td><td>${escapeHtml(transaction.note || "—")}</td><td><div class="transaction-actions"><button class="button button-secondary compact" type="button" data-edit-transaction="${escapeHtml(transaction.id)}" aria-label="Modifier la transaction du ${escapeHtml(formatDate(transaction.date))}">Modifier</button></div></td></tr>`).join("")
+      : emptyRow(5, "Aucune transaction pour ce titre.");  }
+
+  function transactionActionButtons(transaction, includeDelete = true) {
+    const label = `${Forms.TYPE_LABELS[transaction.type] || transaction.type} du ${formatDate(transaction.date)}`;
+    return `<div class="transaction-actions">
+      <button class="button button-secondary compact" type="button" data-edit-transaction="${escapeHtml(transaction.id)}" aria-label="Modifier ${escapeHtml(label)}">Modifier</button>
+      ${includeDelete ? `<button class="button button-danger compact" type="button" data-delete-transaction="${escapeHtml(transaction.id)}" aria-label="Supprimer ${escapeHtml(label)}">Supprimer</button>` : ""}
+    </div>`;
   }
 
   function renderTransactions() {
@@ -510,11 +569,10 @@
     $("#transactionsBody").innerHTML = rows.length
       ? rows.map((transaction) => {
         const flow = displayCashFlow(transaction);
-        return `<tr><td>${formatDate(transaction.date)}</td><td>${escapeHtml(transaction.symbol || "Compte")}</td><td>${escapeHtml(Forms.TYPE_LABELS[transaction.type] || transaction.type)}</td><td>${transactionDetails(transaction)}</td><td class="${valueClass(flow)}">${flow == null ? "—" : formatMoney(flow)}</td><td>${escapeHtml(transaction.note || "—")}</td></tr>`;
+        return `<tr><td>${formatDate(transaction.date)}</td><td>${escapeHtml(transaction.symbol || "Compte")}</td><td>${escapeHtml(Forms.TYPE_LABELS[transaction.type] || transaction.type)}</td><td>${transactionDetails(transaction)}</td><td class="${valueClass(flow)}">${flow == null ? "—" : formatMoney(flow)}</td><td>${escapeHtml(transaction.note || "—")}</td><td>${transactionActionButtons(transaction)}</td></tr>`;
       }).join("")
-      : emptyRow(6, "Aucune opération ne correspond aux filtres.");
+      : emptyRow(7, "Aucune opération ne correspond aux filtres.");
   }
-
   function transactionDetails(transaction) {
     if (Forms.STOCK_TYPES.has(transaction.type)) return `${formatNumber(transaction.quantity, 6)} action(s) à ${formatMoney(transaction.price)}`;
     if (Forms.OPTION_OPEN_TYPES.has(transaction.type)) return `${transaction.contracts} ${escapeHtml(transaction.optionType)} · strike ${formatMoney(transaction.strike)} · ${formatDate(transaction.expiration)}`;
@@ -593,6 +651,10 @@
     $("#marketDataWorkerUrl").value = marketSettings.workerUrl;
   }
 
+  function renderUndoAvailability() {
+    const button = $("#undoTransactionChange");
+    if (button) button.hidden = !Storage.loadUndo();
+  }
   function renderAll() {
     derived = Calc.calculatePortfolio(state);
     $("#demoBanner").hidden = !state.demoMode;
@@ -604,6 +666,7 @@
     renderSecurities();
     renderSettings();
     renderMarketStatus();
+    renderUndoAvailability();
   }
 
   function typeLabel(type) {
@@ -625,21 +688,57 @@
       .map((security) => `<option value="${escapeHtml(security.symbol)}">${escapeHtml(security.symbol)} — ${escapeHtml(security.name)}</option>`).join("");
   }
 
-  function openOperationModal() {
-    populateOperationSelects();
-    $("#operationForm").reset();
-    $("#operationDate").value = new Date().toISOString().slice(0, 10);
-    $("#operationType").value = "DEPOSIT";
-    $("#operationFees").value = "0";
-    $("#dividendTax").value = "0";
-    $("#shortMarginRequirement").value = "0";
-    showErrors($("#operationErrors"), []);
-    updateOperationFields();
-    openModal("operationModal");
+  function setOperationField(id, value) {
+    if (value == null) return;
+    $(id).value = String(value);
   }
 
+  function openOperationModal(transaction = null) {
+    populateOperationSelects();
+    $("#operationForm").reset();
+    operationMode = transaction ? "EDIT" : "ADD";
+    editingTransactionId = transaction?.id || null;
+    operationContextDerived = derived;
+    if (transaction) {
+      const temporary = Storage.clone(state);
+      temporary.transactions = temporary.transactions.filter((item) => item.id !== transaction.id);
+      operationContextDerived = Calc.calculatePortfolio(temporary);
+    }
+    $("#transactionId").value = editingTransactionId || "";
+    $("#operationModalTitle").textContent = transaction ? "Modifier l’opération" : "Ajouter une opération";
+    $("#operationSubmitButton").textContent = transaction ? "Enregistrer les modifications" : "Enregistrer l’opération";
+    $("#operationDate").value = transaction?.date || new Date().toISOString().slice(0, 10);
+    $("#operationType").value = transaction?.type || "DEPOSIT";
+    $("#operationFees").value = String(transaction?.fees ?? 0);
+    $("#dividendTax").value = String(transaction?.taxWithheld ?? 0);
+    $("#shortMarginRequirement").value = String(transaction?.shortMarginRequirement ?? 0);
+    showErrors($("#operationErrors"), []);
+    updateOperationFields();
+    if (transaction) {
+      setOperationField("#operationSymbol", transaction.symbol);
+      setOperationField("#operationAmount", transaction.amount);
+      setOperationField("#stockQuantity", transaction.quantity);
+      setOperationField("#stockPrice", transaction.price);
+      setOperationField("#optionType", transaction.optionType);
+      setOperationField("#optionExpiration", transaction.expiration);
+      setOperationField("#optionStrike", transaction.strike);
+      setOperationField("#existingContract", transaction.contractId);
+      if (Forms.OPTION_CLOSE_TYPES.has(transaction.type) || Forms.OPTION_EVENT_TYPES.has(transaction.type)) {
+        syncExistingContract();
+      }
+      setOperationField("#optionContracts", transaction.contracts);
+      setOperationField("#optionPremium", transaction.premium);
+      setOperationField("#shortMarginRequirement", transaction.shortMarginRequirement ?? 0);
+      setOperationField("#dividendGross", transaction.grossAmount);
+      setOperationField("#dividendTax", transaction.taxWithheld ?? 0);
+      setOperationField("#operationFees", transaction.fees ?? 0);
+      setOperationField("#operationNote", transaction.note || "");
+    }
+    updateOperationPreview();
+    openModal("operationModal");
+  }
   function filteredOptionsForType(type) {
-    return derived.openOptions.filter((option) => {
+    return operationContextDerived.openOptions.filter((option) => {
       if (type === "OPTION_BUY_CLOSE") return option.side === "SHORT";
       if (type === "OPTION_SELL_CLOSE") return option.side === "LONG";
       if (type === "OPTION_ASSIGNMENT") return option.side === "SHORT";
@@ -685,7 +784,7 @@
   }
 
   function syncExistingContract() {
-    const option = derived.openOptions.find((item) => item.contractId === $("#existingContract").value);
+    const option = operationContextDerived.openOptions.find((item) => item.contractId === $("#existingContract").value);
     if (!option) return;
     $("#operationSymbol").value = option.symbol;
     $("#optionContracts").value = option.contractsOpen;
@@ -712,12 +811,16 @@
 
   function buildOperationFromForm() {
     const type = $("#operationType").value;
+    const original = editingTransactionId ? Corrections.findTransaction(state, editingTransactionId) : null;
+    const now = new Date().toISOString();
     const transaction = {
-      id: `TX-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+      id: original?.id || `TX-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+      createdAt: original?.createdAt || now,
       date: $("#operationDate").value,
       type,
       note: $("#operationNote").value.trim()
     };
+    if (operationMode === "EDIT") transaction.updatedAt = now;
     if (!Forms.ACCOUNT_TYPES.has(type)) transaction.symbol = $("#operationSymbol").value;
     if (Forms.ACCOUNT_TYPES.has(type)) transaction.amount = Number($("#operationAmount").value);
     if (Forms.STOCK_TYPES.has(type)) {
@@ -737,10 +840,13 @@
       transaction.premium = Number($("#optionPremium").value);
       transaction.fees = Number($("#operationFees").value || 0);
       transaction.shortMarginRequirement = type === "OPTION_SELL_OPEN" ? Number($("#shortMarginRequirement").value || 0) : 0;
-      transaction.contractId = Forms.makeContractId(transaction);
+      const candidateWithOriginalContract = { ...transaction, contractId: original?.contractId };
+      const preserveContractId = original && Forms.OPTION_OPEN_TYPES.has(original.type)
+        && !Corrections.openingIdentityChanged(original, candidateWithOriginalContract);
+      transaction.contractId = preserveContractId ? original.contractId : Forms.makeContractId(transaction);
     }
     if (Forms.OPTION_CLOSE_TYPES.has(type) || Forms.OPTION_EVENT_TYPES.has(type)) {
-      const option = derived.openOptions.find((item) => item.contractId === $("#existingContract").value);
+      const option = operationContextDerived.openOptions.find((item) => item.contractId === $("#existingContract").value);
       transaction.contractId = $("#existingContract").value;
       transaction.contracts = Number($("#optionContracts").value);
       transaction.symbol = option?.symbol || transaction.symbol;
@@ -750,32 +856,126 @@
     return transaction;
   }
 
+  function confirmAssignmentIfNeeded(transaction) {
+    if (transaction.type !== "OPTION_ASSIGNMENT") return true;
+    const option = operationContextDerived.openOptions.find((item) => item.contractId === transaction.contractId);
+    if (!option) return true;
+    const shares = transaction.contracts * 100;
+    const action = option.optionType === "PUT" ? "acheter" : "vendre";
+    return window.confirm(
+      `Confirmer l’assignation?\n\nLe contrat sera fermé et le portail enregistrera automatiquement ${action} ${shares} actions ${option.symbol} au prix d’exercice de ${formatMoney(option.strike)}.\n\nLa prime de l’option sera conservée dans le résultat.`
+    );
+  }
   function submitOperation(event) {
     event.preventDefault();
     const transaction = buildOperationFromForm();
-    const validation = Forms.validateOperation(transaction, state, derived);
-    showErrors($("#operationErrors"), validation.errors);
-    if (!validation.valid) return;
+    if (!confirmAssignmentIfNeeded(transaction)) return;
 
-    if (transaction.type === "OPTION_ASSIGNMENT") {
-      const option = derived.openOptions.find((item) => item.contractId === transaction.contractId);
-      const shares = transaction.contracts * 100;
-      const action = option.optionType === "PUT" ? "acheter" : "vendre";
-      const confirmed = window.confirm(
-        `Confirmer l’assignation?\n\nLe contrat sera fermé et le portail enregistrera automatiquement ${action} ${shares} actions ${option.symbol} au prix d’exercice de ${formatMoney(option.strike)}.\n\nLa prime de l’option sera conservée dans le résultat.`
-      );
-      if (!confirmed) return;
+    if (operationMode === "ADD") {
+      const preparation = Corrections.prepareAdd(state, transaction);
+      showErrors($("#operationErrors"), preparation.errors || []);
+      if (!preparation.valid) return;
+      const previous = Storage.clone(state);
+      state = preparation.value;
+      if (saveState("TRANSACTION_ADDED")) {
+        closeModal("operationModal");
+        toast("L’opération a été enregistrée.");
+        refreshMarketPrices({ manual: false });
+      } else {
+        state = previous;
+        derived = Calc.calculatePortfolio(state);
+        renderAll();
+      }
+      return;
     }
 
-    state.transactions.push(validation.value);
-    if (saveState("TRANSACTION_ADDED")) {
+    let preparation = Corrections.prepareEdit(state, editingTransactionId, transaction, {
+      updatedAt: transaction.updatedAt
+    });
+    if (preparation.requiresConfirmation) {
+      const details = preparation.dependencies
+        .map((item) => `${formatDate(item.date)} — ${Forms.TYPE_LABELS[item.type] || item.type}`)
+        .join("\n");
+      const confirmed = window.confirm(
+        `Cette option possède des opérations liées. La correction mettra également à jour les opérations et le prix associés au contrat. Continuer?\n\n${details}`
+      );
+      if (!confirmed) return;
+      preparation = Corrections.prepareEdit(state, editingTransactionId, transaction, {
+        allowCascade: true,
+        updatedAt: transaction.updatedAt
+      });
+    }
+    showErrors($("#operationErrors"), preparation.errors || []);
+    if (!preparation.valid) return;
+    if (commitCorrection(preparation.value, "TRANSACTION_UPDATED", editingTransactionId)) {
       closeModal("operationModal");
-      toast("L’opération a été enregistrée.");
-    } else {
-      state.transactions.pop();
+      toast(preparation.cascadeApplied
+        ? "L’opération et ses liens ont été mis à jour."
+        : "L’opération a été mise à jour.");
+      refreshMarketPrices({ manual: false });
     }
   }
 
+  function deletionSummary(transaction) {
+    const quantity = transaction.quantity != null
+      ? `${formatNumber(transaction.quantity, 6)} action(s)`
+      : transaction.contracts != null
+        ? `${transaction.contracts} contrat(s)`
+        : transaction.amount != null
+          ? formatMoney(transaction.amount)
+          : transactionDetails(transaction);
+    return [
+      `Date : ${formatDate(transaction.date)}`,
+      `Titre : ${transaction.symbol || "Compte"}`,
+      `Type : ${Forms.TYPE_LABELS[transaction.type] || transaction.type}`,
+      `Quantité ou montant : ${quantity}`,
+      `Note : ${transaction.note || "—"}`
+    ].join("\n");
+  }
+
+  function deleteTransaction(transactionId) {
+    const transaction = Corrections.findTransaction(state, transactionId);
+    if (!transaction) {
+      toast("La transaction à supprimer est introuvable.", "error");
+      return;
+    }
+    const dependencies = Corrections.linkedTransactions(state, transaction);
+    let message = `Supprimer cette transaction?\n\n${deletionSummary(transaction)}\n\nCette action recalculera les liquidités, les positions, la marge et les P/L.`;
+    if (dependencies.length) {
+      const linked = dependencies.map((item) =>
+        `${formatDate(item.date)} — ${Forms.TYPE_LABELS[item.type] || item.type}`
+      ).join("\n");
+      message = `Ce contrat possède ${dependencies.length} opération(s) liée(s). La suppression retirera également ces opérations.\n\n${deletionSummary(transaction)}\n\nOpérations liées :\n${linked}\n\nCette suppression groupée recalculera tout le portefeuille.`;
+    }
+    if (!window.confirm(message)) return;
+    const preparation = Corrections.prepareDelete(state, transactionId, {
+      allowCascade: dependencies.length > 0
+    });
+    if (!preparation.valid) {
+      toast(`Suppression refusée : ${(preparation.errors || []).join(" ")}`, "error");
+      return;
+    }
+    const action = preparation.cascadeApplied
+      ? "TRANSACTION_CASCADE_DELETED"
+      : "TRANSACTION_DELETED";
+    if (commitCorrection(preparation.value, action, transactionId)) {
+      toast(preparation.cascadeApplied
+        ? "Le contrat et ses opérations liées ont été supprimés."
+        : "La transaction a été supprimée.");
+      refreshMarketPrices({ manual: false });
+    }
+  }
+
+  function handleTransactionAction(event) {
+    const editButton = event.target.closest("[data-edit-transaction]");
+    if (editButton) {
+      const transaction = Corrections.findTransaction(state, editButton.dataset.editTransaction);
+      if (transaction) openOperationModal(transaction);
+      return;
+    }
+    const deleteButton = event.target.closest("[data-delete-transaction]");
+    if (deleteButton) deleteTransaction(deleteButton.dataset.deleteTransaction);
+  }
   function openSecurityModal(security = null) {
     $("#securityForm").reset();
     showErrors($("#securityErrors"), []);
@@ -958,7 +1158,7 @@
       if (event.target === backdrop) closeModal(backdrop.id);
     }));
 
-    ["topAddOperation", "dashboardAdd", "operationsAdd"].forEach((id) => document.getElementById(id).addEventListener("click", openOperationModal));
+    ["topAddOperation", "dashboardAdd", "operationsAdd"].forEach((id) => document.getElementById(id).addEventListener("click", () => openOperationModal()));
     $("#dashboardPrices").addEventListener("click", () => switchView("prices"));
     $("#refreshMarketPrices").addEventListener("click", () => refreshMarketPrices({ manual: true }));
     $("#removeDemoButton").addEventListener("click", removeDemo);
@@ -980,6 +1180,9 @@
     $("#portfolioBody").addEventListener("keydown", (event) => {
       if (["Enter", " "].includes(event.key)) selectSecurityRow(event);
     });
+    $("#transactionsBody").addEventListener("click", handleTransactionAction);
+    $("#securityTransactionsBody").addEventListener("click", handleTransactionAction);
+    $("#undoTransactionChange").addEventListener("click", undoLastCorrection);
     $("#transactionSearch").addEventListener("input", renderTransactions);
     $("#transactionSymbolFilter").addEventListener("change", renderTransactions);
     $("[data-view-panel='prices']").addEventListener("submit", submitPrice);

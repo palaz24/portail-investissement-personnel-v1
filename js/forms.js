@@ -69,7 +69,7 @@
     return { valid: errors.length === 0, errors, value: { ...security, symbol } };
   }
 
-  function validateOperation(transaction, state, derived) {
+  function validateOperation(transaction, state, derived, editingId = null) {
     const errors = [];
     const type = transaction.type;
     const symbol = String(transaction.symbol || "").trim().toUpperCase();
@@ -150,7 +150,9 @@
     if (!Number.isFinite(fees) || fees < 0) errors.push("Les frais ne peuvent pas être négatifs.");
 
     const fingerprint = canonicalTransaction({ ...transaction, symbol });
-    if ((state.transactions || []).some((existing) => canonicalTransaction(existing) === fingerprint)) {
+    if ((state.transactions || []).some((existing) =>
+      existing.id !== editingId && canonicalTransaction(existing) === fingerprint
+    )) {
       errors.push("Cette transaction est un doublon exact d’une transaction existante.");
     }
 

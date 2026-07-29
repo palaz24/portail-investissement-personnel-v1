@@ -315,6 +315,8 @@ main {
 .button-secondary:hover { border-color: #3b5875; background: var(--surface-3); }
 .button-ghost { border-color: rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.05); color: inherit; }
 .button-danger { background: #9d3341; color: #fff; }
+.button-warning { border: 1px solid rgba(255, 183, 87, 0.42); background: var(--warning-soft); color: var(--warning); }
+.button-warning:hover { background: rgba(255, 183, 87, 0.22); }
 .button.compact { min-height: 36px; padding: 7px 12px; font-size: 0.72rem; }
 
 .icon-button {
@@ -437,6 +439,9 @@ main {
 .alert-item.danger > span { background: var(--negative-soft); color: var(--negative); }
 .all-good > span { background: var(--positive-soft); color: var(--positive); }
 
+.transaction-actions { display: flex; min-width: 176px; gap: 8px; align-items: center; }
+.transaction-actions .button { min-height: 38px; white-space: nowrap; }
+.operation-toolbar { justify-content: flex-end; }
 .table-wrap { width: 100%; overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
 th, td { padding: 13px 16px; border-bottom: 1px solid var(--border-soft); text-align: left; white-space: nowrap; }
@@ -687,6 +692,9 @@ input:disabled { opacity: 0.7; cursor: not-allowed; }
   .section-heading { align-items: stretch; flex-direction: column; }
   .button-row,
   .button-row .button { width: 100%; }
+  .operation-toolbar { width: 100%; }
+  .transaction-actions { min-width: 132px; flex-direction: column; align-items: stretch; }
+  .transaction-actions .button { width: 100%; min-height: 42px; padding-inline: 10px; }
   .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kpi-card { min-height: 108px; padding: 14px; }
   .allocation-row { grid-template-columns: 1fr 48px; }

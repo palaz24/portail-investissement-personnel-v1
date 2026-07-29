@@ -52,7 +52,7 @@
         <small>Conservées dans ce navigateur seulement</small>
       </div>
     </div>
-    <p class="version-label">Version 1.1.0 — prix automatiques sécurisés</p>
+    <p class="version-label">Version 1.1.1 — correction sécurisée des transactions</p>
   </aside>
 
   <div class="app-shell">
@@ -186,7 +186,7 @@
           <div class="panel-heading"><div><p class="eyebrow">HISTORIQUE</p><h3>Transactions récentes</h3></div></div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Date</th><th>Opération</th><th>Détails</th><th>Note</th></tr></thead>
+              <thead><tr><th>Date</th><th>Opération</th><th>Détails</th><th>Note</th><th>Actions</th></tr></thead>
               <tbody id="securityTransactionsBody"></tbody>
             </table>
           </div>
@@ -196,7 +196,10 @@
       <section class="view" data-view-panel="operations">
         <div class="section-heading">
           <div><p class="eyebrow">JOURNAL UNIQUE</p><h2>Toutes les opérations</h2><p class="muted">Aucune séparation par méthode d’investissement.</p></div>
-          <button class="button button-primary" id="operationsAdd" type="button">+ Ajouter une opération</button>
+          <div class="button-row operation-toolbar">
+            <button class="button button-warning" id="undoTransactionChange" type="button" hidden>Annuler la dernière correction</button>
+            <button class="button button-primary" id="operationsAdd" type="button">+ Ajouter une opération</button>
+          </div>
         </div>
         <article class="panel">
           <div class="filter-row">
@@ -205,7 +208,7 @@
           </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Date</th><th>Titre</th><th>Opération</th><th>Détails</th><th>Flux</th><th>Note</th></tr></thead>
+              <thead><tr><th>Date</th><th>Titre</th><th>Opération</th><th>Détails</th><th>Flux</th><th>Note</th><th>Actions</th></tr></thead>
               <tbody id="transactionsBody"></tbody>
             </table>
           </div>
@@ -326,6 +329,7 @@
         <button class="icon-button" type="button" data-close-modal="operationModal" aria-label="Fermer">×</button>
       </div>
       <form id="operationForm" novalidate>
+        <input id="transactionId" name="transactionId" type="hidden">
         <div class="error-box" id="operationErrors" role="alert" hidden></div>
         <div class="form-grid">
           <label>Date
@@ -386,7 +390,7 @@
         <div class="calculated-preview" id="operationPreview">Le montant sera calculé automatiquement.</div>
         <div class="form-actions">
           <button class="button button-secondary" type="button" data-close-modal="operationModal">Annuler</button>
-          <button class="button button-primary" type="submit">Enregistrer l’opération</button>
+          <button class="button button-primary" id="operationSubmitButton" type="submit">Enregistrer l’opération</button>
         </div>
       </form>
     </section>
@@ -434,6 +438,7 @@
   <script src="js/calculations.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/forms.js"></script>
+  <script src="js/transaction-corrections.js"></script>
   <script src="js/backup.js"></script>
   <script src="js/history-utils.js"></script>
   <script src="js/market-data.js"></script>
