@@ -1,8 +1,10 @@
-# Portail d’investissement personnel V1
+# Portail d’investissement personnel V1.1
 
-Ce site permet de suivre manuellement un petit portefeuille dans un compte sur marge.
+Ce site permet de suivre un petit portefeuille dans un compte sur marge avec des prix automatiques sécurisés et une saisie manuelle de secours.
 
-Il fonctionne sans serveur, sans abonnement, sans API et sans connexion à Wealthsimple. Les données réelles sont conservées uniquement dans le navigateur utilisé.
+L’interface demeure un site statique GitHub Pages. Un petit Cloudflare Worker séparé protège la clé de Market Data. Les données réelles sont conservées uniquement dans le navigateur utilisé.
+
+Worker installé : https://portail-investissement-market-prices.palazz24.workers.dev
 
 ## Important — confidentialité
 
@@ -56,12 +58,18 @@ Lors d’une assignation, le portail demande une confirmation claire avant de fe
 ## Mettre à jour les prix
 
 1. Ouvrez **Mise à jour des prix**.
-2. Entrez le prix actuel de chaque action ou FNB.
-3. Entrez le coût actuel de fermeture de chaque option ouverte.
-4. Vérifiez la date et l’heure.
-5. Cliquez sur **Enregistrer**.
+2. Cliquez sur **Actualiser les prix** pour demander F, SPY et les symboles OCC nécessaires.
+3. Le portail conserve les anciens prix lorsqu’une donnée fiable est absente.
+4. La mise à jour se répète toutes les 60 minutes lorsque l’onglet est visible.
+5. La saisie manuelle demeure disponible sous l’indicateur automatique.
 
-Aucun prix n’est demandé à Internet automatiquement.
+Le navigateur ne transmet jamais les quantités, coûts moyens, soldes, marges, transactions, notes ou sauvegardes privées. La clé API n’est jamais présente dans le navigateur ou dans GitHub.
+
+La gratuité ou le délai des données dépend du forfait Market Data. Le portail affiche donc « temps réel ou retardé selon le forfait » et ne promet jamais du temps réel sans confirmation explicite.
+
+## Tri des historiques
+
+Les opérations et historiques sont affichés de la plus récente à la plus ancienne. En cas d’égalité, le portail utilise l’heure de création, l’identifiant, puis l’ordre d’enregistrement. Les prochaines échéances d’options restent volontairement classées de la plus proche à la plus éloignée.
 
 ## Sauvegarder les données
 
@@ -100,7 +108,7 @@ Le moyen le plus simple est de créer un dépôt public contenant uniquement les
 2. Glissez le contenu du dossier `Portail_Investissement_Personnel_V1`.
 3. Vérifiez que `index.html` se trouve à la racine du dépôt.
 4. Vérifiez qu’aucune sauvegarde privée n’est dans la liste.
-5. Inscrivez un message simple, par exemple `Publier le portail V1`.
+5. Inscrivez un message simple, par exemple `Publier le portail V1.1`.
 6. Confirmez l’envoi.
 
 La procédure officielle est décrite dans [Ajouter un fichier à un dépôt — GitHub Docs](https://docs.github.com/en/repositories/working-with-files/managing-files/adding-a-file-to-a-repository).
@@ -139,15 +147,18 @@ Le portail utilise uniquement des chemins relatifs et fonctionne donc dans ce so
 Les tests automatisés se trouvent dans `tests`.
 
 - `calculations.test.js` vérifie les calculs et les validations.
+- `v1-1.test.js` vérifie les symboles OCC, les prix, la confidentialité et le tri.
 - `test-runner.html` affiche les résultats dans le navigateur.
+- `worker-market-prices/tests/worker.test.js` vérifie le Worker, CORS, le cache et la sécurité.
 
 Pour afficher les tests, ouvrez `tests/test-runner.html`.
 
-Résultat de livraison : **34 tests réussis sur 34**.
+Résultat de livraison V1.1 : **34 anciens tests sur 34 et 38 nouveaux tests sur 38**.
 
-## Limites de la V1
+## Limites de la V1.1
 
-- Les prix sont saisis manuellement.
+- Les données gratuites Market Data peuvent être retardées.
+- Une connexion Internet et un Worker Cloudflare configuré sont nécessaires aux prix automatiques.
 - Les données d’un navigateur ne sont pas automatiquement copiées vers un autre appareil.
 - Les sauvegardes JSON ne sont pas chiffrées.
 - Les exigences de marge des options courtes sont saisies manuellement.

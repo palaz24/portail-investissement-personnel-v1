@@ -1,4 +1,21 @@
-# Rapport final — Portail d’investissement personnel V1
+# Rapport final — Portail d’investissement personnel V1.1
+
+## Mise à niveau V1.1
+
+La V1.1 ajoute :
+
+- un Cloudflare Worker séparé qui protège `MARKETDATA_TOKEN`;
+- la récupération de F, SPY et des symboles OCC des options ouvertes;
+- une cache minimale de 15 minutes et une limitation raisonnable des requêtes;
+- une actualisation à l’ouverture, puis toutes les 60 minutes lorsque l’onglet est visible;
+- un délai minimal de cinq minutes entre deux actualisations manuelles;
+- la conservation des anciens prix lorsqu’aucune donnée fiable n’est disponible;
+- le tri décroissant de tous les historiques visibles;
+- le tri croissant des prochaines échéances;
+- des indicateurs de source, d’heure et d’état;
+- une saisie manuelle de secours.
+
+Le Worker ne reçoit aucune quantité, transaction, valeur de portefeuille, marge, note, sauvegarde ou identité.
 
 ## Objectif du projet
 
@@ -110,7 +127,7 @@ L’archive finale se nomme `Portail_Investissement_Personnel_V1.zip`. Elle cont
 
 ## Tests exécutés
 
-Trente-quatre tests possèdent chacun un résultat attendu explicite.
+Les 34 tests historiques possèdent chacun un résultat attendu explicite et demeurent réussis. La V1.1 ajoute 21 tests du portail et 17 tests du Worker, pour 72 contrôles automatisés au total.
 
 Résultats :
 
@@ -184,7 +201,9 @@ La clé principale du navigateur est :
 
 ## Limites connues
 
-- Les prix doivent être saisis manuellement.
+- Les données gratuites Market Data peuvent être retardées.
+- Les prix automatiques exigent un Worker Cloudflare configuré et le secret Market Data.
+- La saisie manuelle demeure le mode de secours.
 - Le stockage local est propre à chaque navigateur et appareil.
 - Les sauvegardes JSON ne sont pas chiffrées.
 - Les options courtes utilisent une exigence de marge manuelle.
@@ -204,4 +223,4 @@ La clé principale du navigateur est :
 
 ## Conclusion
 
-Le Portail d’investissement personnel V1 satisfait les critères essentiels de la mission. Il est fonctionnel, responsive, sans serveur, sans dépendance externe, compatible avec GitHub Pages et livré avec 34 tests réussis.
+Le Portail d’investissement personnel V1.1 conserve une interface statique compatible avec GitHub Pages, ajoute un Worker sécurisé pour les prix, protège les données privées et est livré avec 34 tests historiques et 38 nouveaux tests réussis.

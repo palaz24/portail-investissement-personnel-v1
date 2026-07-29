@@ -1,14 +1,33 @@
-# Résultats des tests — Portail d’investissement personnel V1
+# Résultats des tests — Portail d’investissement personnel V1.1
 
 Date de validation : 28 juillet 2026
 
 ## Résultat final
 
-**34 tests réussis sur 34.**
+**72 tests réussis sur 72.**
 
 - Tests exécutés avec le moteur JavaScript : **34 / 34**
-- Tests exécutés dans le navigateur : **34 / 34**
+- Nouveaux tests du portail V1.1 : **21 / 21**
+- Tests du Cloudflare Worker : **17 / 17**
+- Tests affichés dans le navigateur : **55 / 55**
 - Erreurs JavaScript dans le navigateur : **0**
+
+## Nouveaux contrôles V1.1
+
+- Symboles OCC Ford CALL, Ford PUT et SPY.
+- Strike décimal et contrat invalide.
+- Milieu bid-ask, replis vers `mid` et `last`.
+- Refus d’un prix nul ou non fiable.
+- Conservation des anciens prix après erreur.
+- Mise à jour complète et partielle.
+- Corps de requête limité aux symboles et contrats OCC.
+- Absence de quantités, coûts, soldes, transactions et notes dans les requêtes.
+- Blocage des symboles interdits et de plus de 20 options.
+- CORS autorisé et refusé.
+- Secret absent.
+- Cache de 15 minutes.
+- Tri historique décroissant avec règles d’égalité.
+- Prochaines échéances classées par date croissante.
 
 ## Calculs et règles vérifiés
 

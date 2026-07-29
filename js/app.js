@@ -5,11 +5,16 @@
   const Storage = window.PortalStorage;
   const Forms = window.PortalForms;
   const Backup = window.PortalBackup;
+  const History = window.PortalHistory;
+  const Market = window.PortalMarketData;
 
   let state = Storage.load();
   let derived = Calc.calculatePortfolio(state);
   let currentView = "dashboard";
   let selectedSymbol = state.securities.find((security) => security.active !== false)?.symbol || "F";
+  let marketMeta = Market.readMeta();
+  let marketRefreshPromise = null;
+  let automaticRefreshTimer = null;
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -101,6 +106,70 @@
       : "";
   }
 
+  function getMarketSettings() {
+    const configured = state.accountSettings?.marketData || {};
+    return {
+      enabled: configured.enabled !== false,
+      workerUrl: String(configured.workerUrl || Market.DEFAULT_WORKER_URL || "").trim(),
+      frequencyMinutes: 60,
+      provider: "Market Data"
+    };
+  }
+
+  function marketStatusView() {
+    const settings = getMarketSettings();
+    if (!settings.enabled) {
+      return { tone: "warning", label: "Prix automatiques désactivés", detail: "Prix manuel conservé" };
+    }
+    if (!settings.workerUrl) {
+      return { tone: "warning", label: "Prix manuel conservé", detail: "Le service automatique n’est pas encore configuré." };
+    }
+    const states = {
+      loading: { tone: "loading", label: "Mise à jour en cours" },
+      success: { tone: "success", label: "À jour" },
+      delayed: { tone: "warning", label: "Données retardées" },
+      partial: { tone: "warning", label: "Prix partiellement mis à jour" },
+      unavailable: { tone: "error", label: "Service temporairement indisponible" },
+      manual: { tone: "warning", label: "Prix manuel conservé" }
+    };
+    return {
+      ...(states[marketMeta.status] || states.manual),
+      detail: marketMeta.message || "Données en temps réel ou retardées selon le forfait."
+    };
+  }
+
+  function renderMarketStatus() {
+    const view = marketStatusView();
+    const lastSuccess = marketMeta.lastSuccess ? formatDateTime(marketMeta.lastSuccess) : "—";
+    const lastAttempt = marketMeta.lastAttempt ? formatDateTime(marketMeta.lastAttempt) : "—";
+    const html = `
+      <div class="market-status-main">
+        <span class="market-status-dot" aria-hidden="true"></span>
+        <div>
+          <strong>${escapeHtml(view.label)}</strong>
+          <small>${escapeHtml(view.detail)}</small>
+        </div>
+      </div>
+      <div class="market-status-meta">
+        <span>Source : Market Data</span>
+        <span>Dernière réussite : ${escapeHtml(lastSuccess)}</span>
+      </div>`;
+    ["marketStatusDashboard", "marketStatusSecurity", "marketStatusPrices"].forEach((id) => {
+      const element = document.getElementById(id);
+      if (!element) return;
+      element.className = `market-status-card ${id === "marketStatusSecurity" ? "compact-status " : ""}${view.tone}`;
+      element.innerHTML = html;
+    });
+    const summary = $("#marketSettingsSummary");
+    if (summary) {
+      summary.innerHTML = `
+        <strong>Source : Market Data</strong><br>
+        Dernière réussite : ${escapeHtml(lastSuccess)}<br>
+        Dernière tentative : ${escapeHtml(lastAttempt)}<br>
+        Données en temps réel ou retardées selon le forfait.`;
+    }
+  }
+
   function saveState(action) {
     try {
       state = Storage.save(state, action);
@@ -113,6 +182,95 @@
       $("#saveState").textContent = "● Erreur de sauvegarde";
       return false;
     }
+  }
+
+  async function refreshMarketPrices({ manual = false } = {}) {
+    const settings = getMarketSettings();
+    const now = Date.now();
+    if (!settings.enabled || !settings.workerUrl) {
+      marketMeta = {
+        ...marketMeta,
+        status: "manual",
+        message: settings.enabled
+          ? "Le service automatique n’est pas encore configuré."
+          : "La saisie manuelle demeure disponible."
+      };
+      Market.writeMeta(marketMeta);
+      renderMarketStatus();
+      if (manual) toast(marketMeta.message, "error");
+      return false;
+    }
+    if (manual && marketMeta.lastManualAttempt
+      && now - new Date(marketMeta.lastManualAttempt).getTime() < Market.MANUAL_COOLDOWN_MS) {
+      const remaining = Math.ceil((Market.MANUAL_COOLDOWN_MS - (now - new Date(marketMeta.lastManualAttempt).getTime())) / 60000);
+      toast(`Veuillez attendre encore ${remaining} minute(s) avant une nouvelle actualisation manuelle.`, "error");
+      return false;
+    }
+    if (marketRefreshPromise) return marketRefreshPromise;
+    if (document.hidden) return false;
+
+    const request = Market.buildQuoteRequest(state, derived);
+    if (!request.stocks.length && !request.options.length) {
+      marketMeta = { ...marketMeta, status: "manual", message: "Aucun symbole admissible à actualiser." };
+      Market.writeMeta(marketMeta);
+      renderMarketStatus();
+      return false;
+    }
+
+    const attemptedAt = new Date().toISOString();
+    marketMeta = {
+      ...marketMeta,
+      status: "loading",
+      message: "Prix actualisés automatiquement en cours.",
+      lastAttempt: attemptedAt,
+      ...(manual ? { lastManualAttempt: attemptedAt } : {})
+    };
+    Market.writeMeta(marketMeta);
+    renderMarketStatus();
+
+    marketRefreshPromise = (async () => {
+      try {
+        const response = await Market.fetchQuotes(settings.workerUrl, request);
+        const applied = Market.applyQuoteResponse(state, derived, response);
+        const expected = request.stocks.length + request.options.length;
+        const updated = applied.stocksUpdated + applied.optionsUpdated;
+        if (updated > 0) {
+          state = Storage.savePriceUpdate(applied.next);
+          derived = Calc.calculatePortfolio(state);
+        }
+        const partial = updated < expected || applied.errors.length > 0;
+        marketMeta = {
+          ...marketMeta,
+          status: updated === 0 ? "unavailable" : partial ? "partial" : "success",
+          message: updated === 0
+            ? "Aucun prix fiable reçu; anciens prix conservés."
+            : partial
+              ? `${updated} prix sur ${expected} mis à jour; anciens prix conservés pour les autres.`
+              : "Prix actualisés automatiquement.",
+          lastSuccess: updated > 0 ? (response.retrievedAt || new Date().toISOString()) : marketMeta.lastSuccess,
+          provider: response.provider || "Market Data",
+          dataType: response.dataType || "REALTIME_OR_DELAYED",
+          errors: applied.errors
+        };
+        Market.writeMeta(marketMeta);
+        renderAll();
+        if (manual) toast(marketMeta.message, partial ? "error" : "success");
+        return updated > 0;
+      } catch {
+        marketMeta = {
+          ...marketMeta,
+          status: "unavailable",
+          message: "Service temporairement indisponible; anciens prix conservés."
+        };
+        Market.writeMeta(marketMeta);
+        renderMarketStatus();
+        if (manual) toast(marketMeta.message, "error");
+        return false;
+      } finally {
+        marketRefreshPromise = null;
+      }
+    })();
+    return marketRefreshPromise;
   }
 
   function switchView(view) {
@@ -209,19 +367,35 @@
       ? alerts.map((alert) => `<div class="alert-item ${alert.level}"><span aria-hidden="true">${alert.icon}</span><div><strong>${escapeHtml(alert.title)}</strong><small>${escapeHtml(alert.message)}</small></div></div>`).join("")
       : `<div class="all-good"><span aria-hidden="true">✓</span><div><strong>Aucune alerte importante</strong><small>Les données saisies sont cohérentes.</small></div></div>`;
 
-    const expirations = [...derived.openOptions].sort((a, b) => a.expiration.localeCompare(b.expiration));
-    $("#upcomingExpirations").innerHTML = expirations.length
-      ? expirations.slice(0, 6).map((option) => `
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const futureExpirations = History.sortFutureExpirationsAscending(
+      derived.openOptions.filter((option) => option.expiration >= todayKey)
+    );
+    const pastExpirations = History.sortHistoricalDescending(
+      derived.openOptions
+        .filter((option) => option.expiration < todayKey)
+        .map((option) => ({ ...option, date: option.expiration, id: option.contractId }))
+    );
+    $("#upcomingExpirations").innerHTML = futureExpirations.length
+      ? futureExpirations.slice(0, 6).map((option) => `
         <div class="expiry-card">
           <span class="option-side ${option.side.toLowerCase()}">${option.side === "SHORT" ? "COURTE" : "LONGUE"}</span>
           <strong>${escapeHtml(option.symbol)} ${escapeHtml(option.optionType)} ${formatMoney(option.strike)}</strong>
           <small>${formatDate(option.expiration)} · ${option.contractsOpen} contrat(s)</small>
         </div>`).join("")
       : emptyState("Aucune option ouverte.");
+    $("#pastExpirations").innerHTML = pastExpirations.length
+      ? `<h4>Échéances passées à régulariser — plus récentes en premier</h4>
+        <div class="past-expirations-list">${pastExpirations.map((option) => `
+          <div><span>${escapeHtml(option.symbol)} ${escapeHtml(option.optionType)} ${formatMoney(option.strike)}</span><strong>${formatDate(option.expiration)}</strong></div>`).join("")}</div>`
+      : "";
 
-    const updates = Object.values(state.prices || {}).map((item) => item.updatedAt).filter(Boolean).sort();
+    const updates = Object.values(state.prices || {})
+      .map((item) => item.updatedAt)
+      .filter(Boolean)
+      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
     $("#dashboardUpdated").textContent = updates.length
-      ? `Dernière mise à jour des prix : ${formatDateTime(updates.at(-1))}`
+      ? `Dernière mise à jour des prix : ${formatDateTime(updates[0])}`
       : "Aucun prix n’a encore été saisi.";
   }
 
@@ -274,7 +448,9 @@
     $("#securityName").textContent = security.name;
     $("#securityType").textContent = typeLabel(security.type);
     $("#securityPrice").textContent = formatMoney(security.currentPrice);
-    $("#securityPriceDate").textContent = priceInfo?.updatedAt ? `mis à jour ${formatDateTime(priceInfo.updatedAt)}` : "prix non saisi";
+    $("#securityPriceDate").textContent = priceInfo?.updatedAt
+      ? `${priceInfo.source === "Market Data" ? "● Market Data · " : "Prix manuel · "}mis à jour ${formatDateTime(priceInfo.updatedAt)}`
+      : "prix non saisi";
 
     $("#securityKpis").innerHTML = [
       kpiCard("Actions détenues", formatNumber(security.shares, 6)),
@@ -315,7 +491,9 @@
         <tr><td><code>${escapeHtml(option.contractId)}</code></td><td>${option.side === "SHORT" ? "Courte" : "Longue"} ${escapeHtml(option.optionType)}</td><td>${formatDate(option.expiration)}</td><td>${formatMoney(option.strike)}</td><td>${option.contractsOpen}</td><td>${formatMoney(option.currentPrice)}</td><td class="${valueClass(option.unrealizedPL)}">${formatMoney(option.unrealizedPL)}</td></tr>`).join("")
       : emptyRow(7, "Aucune option ouverte pour ce titre.");
 
-    const transactions = state.transactions.filter((transaction) => transaction.symbol === selectedSymbol).slice().reverse().slice(0, 12);
+    const transactions = History.sortHistoricalDescending(
+      state.transactions.filter((transaction) => transaction.symbol === selectedSymbol)
+    ).slice(0, 12);
     $("#securityTransactionsBody").innerHTML = transactions.length
       ? transactions.map((transaction) => `<tr><td>${formatDate(transaction.date)}</td><td>${escapeHtml(Forms.TYPE_LABELS[transaction.type] || transaction.type)}</td><td>${transactionDetails(transaction)}</td><td>${escapeHtml(transaction.note || "—")}</td></tr>`).join("")
       : emptyRow(4, "Aucune transaction pour ce titre.");
@@ -324,7 +502,7 @@
   function renderTransactions() {
     const search = $("#transactionSearch").value.trim().toLowerCase();
     const symbolFilter = $("#transactionSymbolFilter").value;
-    const rows = state.transactions.slice().reverse().filter((transaction) => {
+    const rows = History.sortHistoricalDescending(state.transactions).filter((transaction) => {
       if (symbolFilter && transaction.symbol !== symbolFilter) return false;
       const haystack = `${transaction.symbol || ""} ${Forms.TYPE_LABELS[transaction.type] || transaction.type} ${transaction.note || ""}`.toLowerCase();
       return !search || haystack.includes(search);
@@ -364,7 +542,7 @@
       const existing = state.prices?.[security.symbol] || {};
       return `
         <form class="price-row" data-security-price="${escapeHtml(security.symbol)}">
-          <div class="price-title"><span>${escapeHtml(security.symbol)}</span><div><strong>${escapeHtml(security.name)}</strong><small>${existing.updatedAt ? `Dernière saisie : ${formatDateTime(existing.updatedAt)}` : "Aucun prix saisi"}</small></div></div>
+          <div class="price-title"><span>${escapeHtml(security.symbol)}</span><div><strong>${escapeHtml(security.name)}</strong><small>${existing.updatedAt ? `${existing.source === "Market Data" ? "Market Data" : "Prix manuel"} · ${formatDateTime(existing.updatedAt)}` : "Aucun prix saisi"}</small></div></div>
           <label>Prix actuel (USD)<input name="price" type="number" min="0" step="0.0001" value="${escapeHtml(existing.price ?? "")}" required></label>
           <label>Date et heure<input name="updatedAt" type="datetime-local" value="${escapeHtml(existing.updatedAt ? localDateTimeValue(existing.updatedAt) : now)}" required></label>
           <button class="button button-secondary compact" type="submit">Enregistrer</button>
@@ -376,7 +554,7 @@
         const existing = state.optionPrices?.[option.contractId] || {};
         return `
           <form class="price-row" data-option-price="${escapeHtml(option.contractId)}">
-            <div class="price-title"><span>${escapeHtml(option.symbol)}</span><div><strong>${escapeHtml(option.optionType)} ${formatMoney(option.strike)} · ${option.side === "SHORT" ? "courte" : "longue"}</strong><small>Échéance ${formatDate(option.expiration)}</small></div></div>
+            <div class="price-title"><span>${escapeHtml(option.symbol)}</span><div><strong>${escapeHtml(option.optionType)} ${formatMoney(option.strike)} · ${option.side === "SHORT" ? "courte" : "longue"}</strong><small>${existing.source === "Market Data" ? "Market Data · " : ""}Échéance ${formatDate(option.expiration)}</small></div></div>
             <label>Prix actuel par action<input name="price" type="number" min="0" step="0.0001" value="${escapeHtml(existing.price ?? "")}" required></label>
             <label>Date et heure<input name="updatedAt" type="datetime-local" value="${escapeHtml(existing.updatedAt ? localDateTimeValue(existing.updatedAt) : now)}" required></label>
             <button class="button button-secondary compact" type="submit">Enregistrer</button>
@@ -407,9 +585,12 @@
   }
 
   function renderSettings() {
+    const marketSettings = getMarketSettings();
     $("#accountName").value = state.accountSettings.accountName || "";
     $("#baseCurrency").value = state.accountSettings.baseCurrency || "USD";
     $("#marginInterestRate").value = Number(state.accountSettings.marginInterestRate) || 0;
+    $("#automaticPricesEnabled").checked = marketSettings.enabled;
+    $("#marketDataWorkerUrl").value = marketSettings.workerUrl;
   }
 
   function renderAll() {
@@ -422,6 +603,7 @@
     renderPrices();
     renderSecurities();
     renderSettings();
+    renderMarketStatus();
   }
 
   function typeLabel(type) {
@@ -643,7 +825,9 @@
     const form = securityForm || optionForm;
     const price = {
       price: Number(form.elements.price.value),
-      updatedAt: new Date(form.elements.updatedAt.value).toISOString()
+      updatedAt: new Date(form.elements.updatedAt.value).toISOString(),
+      source: "Manuel",
+      dataType: "MANUAL"
     };
     const validation = Forms.validatePrice(price);
     if (!validation.valid) {
@@ -655,7 +839,12 @@
     } else {
       state.optionPrices[optionForm.dataset.optionPrice] = price;
     }
-    if (saveState("PRICE_UPDATED")) toast("Le prix a été mis à jour.");
+    if (saveState("PRICE_UPDATED")) {
+      marketMeta = { ...marketMeta, status: "manual", message: "Prix manuel conservé." };
+      Market.writeMeta(marketMeta);
+      renderMarketStatus();
+      toast("Le prix a été mis à jour.");
+    }
   }
 
   function exportBackup() {
@@ -720,13 +909,43 @@
       toast("Le taux d’intérêt doit être entre 0 % et 100 %.", "error");
       return;
     }
+    const workerUrl = $("#marketDataWorkerUrl").value.trim();
+    if (workerUrl && !/^https:\/\/[a-z0-9.-]+$/i.test(workerUrl)
+      && !/^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/i.test(workerUrl)) {
+      toast("L’URL du Worker doit être une adresse HTTPS valide.", "error");
+      return;
+    }
     state.accountSettings.accountName = $("#accountName").value.trim() || "Mon compte sur marge";
     state.accountSettings.baseCurrency = "USD";
     state.accountSettings.marginInterestRate = rate;
     state.accountSettings.stockCommission = 0;
     state.accountSettings.optionCommission = 0;
     state.accountSettings.assignmentFee = 0;
-    if (saveState("SETTINGS_UPDATED")) toast("Les paramètres ont été enregistrés.");
+    state.accountSettings.marketData = {
+      enabled: $("#automaticPricesEnabled").checked,
+      workerUrl,
+      frequencyMinutes: 60,
+      provider: "Market Data"
+    };
+    if (saveState("SETTINGS_UPDATED")) {
+      toast("Les paramètres ont été enregistrés.");
+      if (state.accountSettings.marketData.enabled && workerUrl) refreshMarketPrices({ manual: false });
+    }
+  }
+
+  function setupAutomaticRefresh() {
+    if (automaticRefreshTimer) window.clearInterval(automaticRefreshTimer);
+    automaticRefreshTimer = window.setInterval(() => {
+      if (!document.hidden) refreshMarketPrices({ manual: false });
+    }, Market.AUTO_REFRESH_MS);
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) return;
+      const lastAttempt = marketMeta.lastAttempt ? new Date(marketMeta.lastAttempt).getTime() : 0;
+      if (!lastAttempt || Date.now() - lastAttempt >= Market.AUTO_REFRESH_MS) {
+        refreshMarketPrices({ manual: false });
+      }
+    });
+    window.setTimeout(() => refreshMarketPrices({ manual: false }), 0);
   }
 
   function bindEvents() {
@@ -741,6 +960,7 @@
 
     ["topAddOperation", "dashboardAdd", "operationsAdd"].forEach((id) => document.getElementById(id).addEventListener("click", openOperationModal));
     $("#dashboardPrices").addEventListener("click", () => switchView("prices"));
+    $("#refreshMarketPrices").addEventListener("click", () => refreshMarketPrices({ manual: true }));
     $("#removeDemoButton").addEventListener("click", removeDemo);
     $("#operationType").addEventListener("change", updateOperationFields);
     $("#existingContract").addEventListener("change", () => { syncExistingContract(); updateOperationPreview(); });
@@ -786,6 +1006,7 @@
     populateOperationSelects();
     bindEvents();
     renderAll();
+    setupAutomaticRefresh();
     window.__PORTAL_READY__ = true;
     window.__PORTAL_STATE__ = () => Storage.clone(state);
     window.__PORTAL_DERIVED__ = () => Calc.calculatePortfolio(state);

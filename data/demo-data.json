@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "demoMode": true,
   "createdAt": "2026-07-28T12:00:00.000Z",
   "updatedAt": "2026-07-28T12:00:00.000Z",
@@ -9,7 +9,13 @@
     "marginInterestRate": 8,
     "stockCommission": 0,
     "optionCommission": 0,
-    "assignmentFee": 0
+    "assignmentFee": 0,
+    "marketData": {
+      "enabled": true,
+      "workerUrl": "https://portail-investissement-market-prices.palazz24.workers.dev",
+      "frequencyMinutes": 60,
+      "provider": "Market Data"
+    }
   },
   "securities": [
     {
@@ -89,17 +95,20 @@
   "prices": {
     "F": {
       "price": 11.25,
-      "updatedAt": "2026-07-28T12:00:00.000Z"
+      "updatedAt": "2026-07-28T12:00:00.000Z",
+      "source": "Démonstration"
     },
     "SPY": {
       "price": 510,
-      "updatedAt": "2026-07-28T12:00:00.000Z"
+      "updatedAt": "2026-07-28T12:00:00.000Z",
+      "source": "Démonstration"
     }
   },
   "optionPrices": {
     "DEMO-F-CALL-20261218-12-001": {
       "price": 0.2,
-      "updatedAt": "2026-07-28T12:00:00.000Z"
+      "updatedAt": "2026-07-28T12:00:00.000Z",
+      "source": "Démonstration"
     }
   },
   "positionsInitiales": [],

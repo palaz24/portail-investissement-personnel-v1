@@ -2,7 +2,7 @@
   "use strict";
 
   const STORAGE_KEY = "portailInvestissementV1";
-  const APP_VERSION = "1.0.0";
+  const APP_VERSION = "1.1.0";
 
   function clone(value) {
     return JSON.parse(JSON.stringify(value));
@@ -45,7 +45,13 @@
         marginInterestRate: 8.00,
         stockCommission: 0,
         optionCommission: 0,
-        assignmentFee: 0
+        assignmentFee: 0,
+        marketData: {
+          enabled: true,
+          workerUrl: "https://portail-investissement-market-prices.palazz24.workers.dev",
+          frequencyMinutes: 60,
+          provider: "Market Data"
+        }
       },
       securities: createBaseSecurities(),
       transactions: [
@@ -102,13 +108,14 @@
         }
       ],
       prices: {
-        F: { price: 11.25, updatedAt: "2026-07-28T12:00:00.000Z" },
-        SPY: { price: 510, updatedAt: "2026-07-28T12:00:00.000Z" }
+        F: { price: 11.25, updatedAt: "2026-07-28T12:00:00.000Z", source: "Démonstration" },
+        SPY: { price: 510, updatedAt: "2026-07-28T12:00:00.000Z", source: "Démonstration" }
       },
       optionPrices: {
         "DEMO-F-CALL-20261218-12-001": {
           price: 0.20,
-          updatedAt: "2026-07-28T12:00:00.000Z"
+          updatedAt: "2026-07-28T12:00:00.000Z",
+          source: "Démonstration"
         }
       },
       positionsInitiales: [],
@@ -136,7 +143,13 @@
         marginInterestRate: 8.00,
         stockCommission: 0,
         optionCommission: 0,
-        assignmentFee: 0
+        assignmentFee: 0,
+        marketData: {
+          enabled: true,
+          workerUrl: "https://portail-investissement-market-prices.palazz24.workers.dev",
+          frequencyMinutes: 60,
+          provider: "Market Data"
+        }
       },
       securities: createBaseSecurities(),
       transactions: [],
@@ -245,6 +258,20 @@
     return next;
   }
 
+  function savePriceUpdate(data) {
+    const next = clone(data);
+    next.version = APP_VERSION;
+    next.updatedAt = new Date().toISOString();
+    const validation = validateData(next);
+    if (!validation.valid) {
+      throw new Error(validation.errors.join(" "));
+    }
+    if (!safeWrite(JSON.stringify(next))) {
+      throw new Error("Le navigateur n’a pas permis d’enregistrer les prix localement.");
+    }
+    return next;
+  }
+
   function clear() {
     try {
       globalScope.localStorage?.removeItem(STORAGE_KEY);
@@ -262,6 +289,7 @@
     validateData,
     load,
     save,
+    savePriceUpdate,
     clear,
     clone
   };

@@ -14,3 +14,10 @@ SECOURS_AVANT_RESTAURATION_*.json
 # Fichiers système
 .DS_Store
 Thumbs.db
+
+# Secrets locaux — ne jamais publier
+.env
+.env.*
+.dev.vars
+.dev.vars.*
+worker-market-prices/.wrangler/

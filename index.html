@@ -52,7 +52,7 @@
         <small>Conservées dans ce navigateur seulement</small>
       </div>
     </div>
-    <p class="version-label">Version 1.0 — site statique</p>
+    <p class="version-label">Version 1.1.0 — prix automatiques sécurisés</p>
   </aside>
 
   <div class="app-shell">
@@ -89,6 +89,8 @@
             <button class="button button-primary" id="dashboardAdd" type="button">Ajouter une opération</button>
           </div>
         </div>
+
+        <div class="market-status-card" id="marketStatusDashboard" aria-live="polite"></div>
 
         <div class="kpi-grid" id="dashboardKpis"></div>
 
@@ -135,6 +137,7 @@
             <div><p class="eyebrow">CALENDRIER</p><h3>Prochaines échéances</h3></div>
           </div>
           <div id="upcomingExpirations" class="expiry-grid"></div>
+          <div class="past-expirations" id="pastExpirations"></div>
         </article>
       </section>
 
@@ -153,6 +156,8 @@
             <select id="securityPicker" aria-label="Choisir le titre à afficher"></select>
           </label>
         </div>
+
+        <div class="market-status-card compact-status" id="marketStatusSecurity" aria-live="polite"></div>
 
         <div class="kpi-grid security-kpis" id="securityKpis"></div>
 
@@ -209,11 +214,13 @@
 
       <section class="view" data-view-panel="prices">
         <div class="section-heading">
-          <div><p class="eyebrow">SAISIE MANUELLE</p><h2>Mise à jour des prix</h2><p class="muted">Aucune donnée n’est demandée à un service externe.</p></div>
+          <div><p class="eyebrow">PRIX AUTOMATIQUES ET MANUELS</p><h2>Mise à jour des prix</h2><p class="muted">Seuls F, SPY et les symboles OCC des options ouvertes peuvent être transmis au service sécurisé.</p></div>
+          <button class="button button-primary" id="refreshMarketPrices" type="button">Actualiser les prix</button>
         </div>
+        <div class="market-status-card" id="marketStatusPrices" aria-live="polite"></div>
         <div class="privacy-notice">
           <strong>Vos prix restent privés.</strong>
-          <span>Ils sont enregistrés uniquement dans ce navigateur.</span>
+          <span>Ils sont enregistrés uniquement dans ce navigateur. Aucune position, transaction, quantité ou valeur de compte n’est transmise.</span>
         </div>
         <article class="panel">
           <div class="panel-heading"><div><p class="eyebrow">ACTIONS ET FNB</p><h3>Derniers prix connus</h3></div></div>
@@ -290,7 +297,18 @@
             <label>Frais d’assignation
               <input value="0,00 $ US" disabled>
             </label>
+            <label class="checkbox-label">
+              <input id="automaticPricesEnabled" name="automaticPricesEnabled" type="checkbox">
+              Prix automatiques activés
+            </label>
+            <label>Fréquence
+              <input value="60 minutes" disabled>
+            </label>
+            <label class="wide-field">URL du service Cloudflare Worker
+              <input id="marketDataWorkerUrl" name="marketDataWorkerUrl" type="url" placeholder="https://nom-du-worker.workers.dev">
+            </label>
           </div>
+          <div class="market-settings-summary" id="marketSettingsSummary"></div>
           <div class="form-actions"><button class="button button-primary" type="submit">Enregistrer les paramètres</button></div>
         </form>
         <article class="panel danger-zone">
@@ -417,6 +435,8 @@
   <script src="js/storage.js"></script>
   <script src="js/forms.js"></script>
   <script src="js/backup.js"></script>
+  <script src="js/history-utils.js"></script>
+  <script src="js/market-data.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
