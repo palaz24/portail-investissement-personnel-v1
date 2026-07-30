@@ -1,4 +1,10 @@
-# Rapport final — Portail d’investissement personnel V1.2.1
+# Rapport final — Portail d’investissement personnel V1.2.2
+
+## Correctif V1.2.2 — prix comptable des options ouvertes
+
+La V1.2.2 présente le prix comptable net de chaque jambe d’option ouverte, distinctement du prix actuel et du P/L non réalisé. Le calcul utilise la valeur comptable restante, les contrats encore ouverts et le multiplicateur de 100; il tient donc compte des frais et des fermetures partielles.
+
+Les colonnes « Réelle ou estimée » et « Date de vérification » sont retirées uniquement du tableau. Les données de garantie demeurent disponibles dans les transactions, les sauvegardes, le formulaire, les alertes et les calculs.
 
 ## Correctifs V1.2.1 — options, notes et couverture
 
@@ -156,14 +162,14 @@ L’archive finale se nomme `Portail_Investissement_Personnel_V1.zip`. Elle cont
 
 ## Tests exécutés
 
-Les 97 tests existants demeurent réussis. La V1.2.0 ajoute 25 tests ciblés, pour 122 contrôles automatisés au total.
+Les suites historiques et correctives demeurent réussies. Le portail possède maintenant 147 contrôles dans le navigateur et le Worker conserve ses 17 contrôles séparés.
 
 Résultats :
 
-- anciens tests : **97 / 97**;
-- nouveaux tests V1.2.0 : **25 / 25**;
-- total : **122 / 122**;
-- portail dans le navigateur : **105 / 105**;
+- tests précédents : **156 / 156**;
+- nouveaux tests du tableau des options : **8 / 8**;
+- total : **164 / 164**;
+- portail dans le navigateur : **147 / 147**;
 - erreurs JavaScript : **0**.
 
 Les détails sont dans `RESULTATS_TESTS.md`.
@@ -254,4 +260,4 @@ La clé principale du navigateur est :
 
 ## Conclusion
 
-Le Portail d’investissement personnel V1.2.1 demeure une interface statique compatible avec GitHub Pages. Il protège les données privées, conserve le Worker de prix inchangé et réussit 156 tests sur 156, dont 34 contrôles propres aux correctifs V1.2.1.
+Le Portail d’investissement personnel V1.2.2 demeure une interface statique compatible avec GitHub Pages. Il protège les données privées, conserve le Worker de prix inchangé et réussit 164 tests sur 164, dont 8 nouveaux contrôles propres au tableau des options ouvertes.

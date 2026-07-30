@@ -1,22 +1,23 @@
-# Résultats des tests — Portail d’investissement personnel V1.2.1
+# Résultats des tests — Portail d’investissement personnel V1.2.2
 
-Date de validation : 29 juillet 2026
+Date de validation : 30 juillet 2026
 
 ## Résultat final
 
-**156 tests réussis sur 156.**
+**164 tests réussis sur 164.**
 
-- Anciens tests conservés : **122 / 122**
+- Tests précédents conservés : **156 / 156**
   - calculs historiques : **34 / 34**
   - portail V1.1 : **21 / 21**
   - corrections V1.1.1 : **25 / 25**
   - garanties V1.2.0 : **25 / 25**
+  - premiers correctifs V1.2.1 : **34 / 34**
   - Cloudflare Worker inchangé : **17 / 17**
-- Nouveaux tests V1.2.1 : **34 / 34**
-- Tests du portail affichés dans le navigateur : **139 / 139**
+- Nouveaux tests du tableau des options : **8 / 8**
+- Tests du portail affichés dans le navigateur : **147 / 147**
 - Erreurs JavaScript dans le navigateur : **0**
 
-## Contrôles V1.2.1
+## Contrôles V1.2.2
 
 - Tri pur et non destructif des options futures et échues.
 - Ordre secondaire par PUT, CALL, strike et identifiant de contrat.
@@ -32,6 +33,9 @@ Date de validation : 29 juillet 2026
 - Blocage d’une opération qui laisserait un put vendu sans couverture.
 - Assignation sans double comptabilisation et conservation du put long.
 - Sauvegarde, restauration, modification et annulation des liens de couverture.
+- Prix comptable net distinct pour chaque option longue et courte.
+- Frais et valeur restante après fermeture partielle inclus dans le prix comptable.
+- Colonnes de vérification retirées uniquement du tableau, sans retrait des données.
 
 ## Confidentialité et isolation
 

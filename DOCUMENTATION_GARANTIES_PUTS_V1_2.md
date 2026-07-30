@@ -1,4 +1,4 @@
-# Garanties des puts vendus — V1.2.1
+# Garanties des puts vendus et options ouvertes — V1.2.2
 
 ## Formulaire
 
@@ -112,3 +112,9 @@ Le portail signale :
 - une surallocation d’un put long;
 - un lien de couverture absent ou invalide;
 - une estimation de calendrier ou de diagonal qui exige la garantie réelle.
+
+## Tableau des options ouvertes
+
+Le tableau présente séparément le **Prix comptable**, le **Prix actuel** et le **P/L non réalisé** de chaque jambe. Le prix comptable correspond à la valeur comptable restante divisée par les contrats encore ouverts et par le multiplicateur de 100. Il inclut donc les frais et demeure exact après une fermeture partielle.
+
+Les colonnes « Réelle ou estimée » et « Date de vérification » ne sont plus affichées dans ce tableau afin de le simplifier. Les champs `actualMarginRequirement` et `marginRequirementCheckedAt` demeurent toutefois intacts dans les transactions, les sauvegardes, le formulaire de modification, les alertes et les calculs.

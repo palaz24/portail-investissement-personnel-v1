@@ -12,6 +12,8 @@
   const Collateral = isNode ? require("../js/collateral.js") : globalScope.PortalCollateral;
   const Calc = isNode ? require("../js/calculations.js") : globalScope.PortalCalculations;
   const Forms = isNode ? require("../js/forms.js") : globalScope.PortalForms;
+  const Storage = isNode ? require("../js/storage.js") : globalScope.PortalStorage;
+  const Backup = isNode ? require("../js/backup.js") : globalScope.PortalBackup;
   const Corrections = isNode
     ? require("../js/transaction-corrections.js")
     : globalScope.PortalTransactionCorrections;
@@ -84,7 +86,7 @@
           id: "SEC-SPY",
           symbol: "SPY",
           name: "SPY",
-          type: "ETF",
+          type: "FNB",
           currency: "USD",
           marginEligible: true,
           marginRequirement: 0.3,
@@ -543,6 +545,119 @@
     assert(!integrity.valid, "La surallocation n'a pas été détectée");
   });
 
+  test(140, "le prix comptable d'une option longue est le coût net par action", () => {
+    const option = Calc.calculatePortfolio(baseState([longPut()])).openOptions[0];
+    assert(option.bookPrice === 0.15, `Prix comptable long incorrect: ${option.bookPrice}`);
+  });
+
+  test(141, "le prix comptable d'une option courte est la prime nette par action", () => {
+    const option = Calc.calculatePortfolio(baseState([
+      shortPut({
+        putCollateralMode: Collateral.FULLY_SECURED,
+        coveringContractId: null,
+        coveredContracts: 0,
+        coverageType: null,
+      }),
+    ])).openOptions[0];
+    assert(option.bookPrice === 0.4, `Prix comptable court incorrect: ${option.bookPrice}`);
+  });
+
+  test(142, "les frais sont inclus dans le prix comptable de chaque jambe", () => {
+    const longOption = Calc.calculatePortfolio(baseState([
+      longPut({ fees: 2 }),
+    ])).openOptions[0];
+    const shortOption = Calc.calculatePortfolio(baseState([
+      shortPut({
+        contracts: 2,
+        fees: 2,
+        putCollateralMode: Collateral.FULLY_SECURED,
+        coveringContractId: null,
+        coveredContracts: 0,
+        coverageType: null,
+      }),
+    ])).openOptions[0];
+    equal(
+      [longOption.bookPrice, shortOption.bookPrice],
+      [0.16, 0.39],
+      "Les frais ne sont pas répartis correctement",
+    );
+  });
+
+  test(143, "une fermeture partielle utilise la valeur comptable restante", () => {
+    const state = baseState([
+      longPut({ fees: 2 }),
+      {
+        id: "CLOSE-LONG-PARTIAL",
+        createdAt: "2026-02-01T09:00:00.000Z",
+        date: "2026-02-01",
+        symbol: "F",
+        type: "OPTION_SELL_CLOSE",
+        contractId: "LONG-F-12",
+        contracts: 1,
+        premium: 0.2,
+        fees: 0,
+      },
+    ]);
+    const option = Calc.calculatePortfolio(state).openOptions[0];
+    assert(
+      option.contractsOpen === 1 &&
+        option.openingBasisRemaining === 16 &&
+        option.bookPrice === 0.16,
+      "Le prix comptable restant est incorrect après une fermeture partielle",
+    );
+  });
+
+  test(144, "une option entièrement fermée est absente du tableau", () => {
+    const state = baseState([
+      longPut(),
+      {
+        id: "CLOSE-LONG-ALL",
+        createdAt: "2026-02-01T09:00:00.000Z",
+        date: "2026-02-01",
+        symbol: "F",
+        type: "OPTION_SELL_CLOSE",
+        contractId: "LONG-F-12",
+        contracts: 2,
+        premium: 0.2,
+        fees: 0,
+      },
+    ]);
+    assert(Calc.calculatePortfolio(state).openOptions.length === 0, "L'option fermée est encore visible");
+  });
+
+  test(145, "la sauvegarde et la restauration préservent le calcul comptable", () => {
+    const state = baseState([longPut({ fees: 2 })]);
+    const payload = Backup.createPayload(state);
+    const restored = Backup.validatePayload(payload);
+    assert(restored.valid, "La sauvegarde n'a pas été restaurée");
+    const option = Calc.calculatePortfolio(restored.value).openOptions[0];
+    assert(
+      restored.value.transactions[0].fees === 2 && option.bookPrice === 0.16,
+      "Le prix comptable restauré est incorrect",
+    );
+    assert(Storage.APP_VERSION === "1.2.2", "La version de sauvegarde attendue a changé");
+  });
+
+  test(146, "le tableau mobile demeure contenu dans un défilement horizontal propre", () => {
+    assert(
+      /\.table-wrap\s*\{[^}]*overflow-x:\s*auto/s.test(cssSource),
+      "Le tableau ne possède pas son propre défilement horizontal",
+    );
+    assert(
+      /\.option-collateral-detail\s*\{[^}]*white-space:\s*normal/s.test(cssSource),
+      "Le détail de garantie ne peut pas se replier sur mobile",
+    );
+  });
+
+  test(147, "les anciennes colonnes sont retirées et Prix comptable est présent", () => {
+    const table = htmlSource.match(
+      /<thead><tr><th>Contrat[\s\S]*?<\/thead>\s*<tbody id="securityOptionsBody">/,
+    )?.[0] || "";
+    assert(table.includes("<th>Prix comptable</th>"), "La colonne Prix comptable manque");
+    assert(!table.includes("Réelle ou estimée"), "La colonne Réelle ou estimée est encore visible");
+    assert(!table.includes("Date de vérification"), "La colonne Date de vérification est encore visible");
+  });
+
   const failed = results.filter((result) => !result.passed);
   const summary = {
     total: results.length,
@@ -554,7 +669,7 @@
   globalScope.__PORTAL_V121_TEST_RESULTS__ = summary;
 
   if (isNode) {
-    console.log(`\nV1.2.1: ${summary.passed}/${summary.total} tests réussis.`);
+    console.log(`\nV1.2.2: ${summary.passed}/${summary.total} tests réussis.`);
     if (failed.length) process.exitCode = 1;
     module.exports = summary;
   } else {

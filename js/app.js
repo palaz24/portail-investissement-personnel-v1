@@ -72,6 +72,14 @@
     }).format(Number(value) || 0);
   }
 
+  function formatOptionBookPrice(value) {
+    if (value == null || !Number.isFinite(Number(value))) return "—";
+    const numericValue = Number(value);
+    const roundedToCents = Math.round((numericValue + Number.EPSILON) * 100) / 100;
+    const digits = Math.abs(numericValue - roundedToCents) > 1e-9 ? 4 : 2;
+    return formatMoney(numericValue, digits);
+  }
+
   function formatNumber(value, digits = 2) {
     return new Intl.NumberFormat("fr-CA", {
       minimumFractionDigits: 0,
@@ -636,9 +644,9 @@
             ).join("")
             : "";
         return `
-        <tr><td><code>${escapeHtml(option.contractId)}</code></td><td>${option.side === "SHORT" ? "Courte" : "Longue"} ${escapeHtml(option.optionType)}</td><td>${formatDate(option.expiration)}${isExpired ? `<span class="expired-option-badge">Échue — à régulariser</span>` : ""}</td><td>${formatMoney(option.strike)}</td><td>${option.contractsOpen}</td><td class="option-collateral-detail">${escapeHtml(mode)}${coverageDetails}</td><td>${isPutShort ? formatMoney(option.collateralAmount) : "—"}</td><td>${isPutShort ? escapeHtml(option.collateralLabel) : "—"}</td><td>${isPutShort ? formatDate(option.collateralCheckedAt) : "—"}</td><td>${formatMoney(option.currentPrice)}</td><td class="${valueClass(option.unrealizedPL)}">${formatMoney(option.unrealizedPL)}</td></tr>`;
+        <tr><td><code>${escapeHtml(option.contractId)}</code></td><td>${option.side === "SHORT" ? "Courte" : "Longue"} ${escapeHtml(option.optionType)}</td><td>${formatDate(option.expiration)}${isExpired ? `<span class="expired-option-badge">Échue — à régulariser</span>` : ""}</td><td>${formatMoney(option.strike)}</td><td>${option.contractsOpen}</td><td class="option-collateral-detail">${escapeHtml(mode)}${coverageDetails}</td><td>${isPutShort ? formatMoney(option.collateralAmount) : "—"}</td><td>${formatOptionBookPrice(option.bookPrice)}</td><td>${formatMoney(option.currentPrice, 4)}</td><td class="${valueClass(option.unrealizedPL)}">${formatMoney(option.unrealizedPL)}</td></tr>`;
       }).join("")
-      : emptyRow(11, "Aucune option ouverte pour ce titre.");
+      : emptyRow(10, "Aucune option ouverte pour ce titre.");
 
     const transactions = History.sortHistoricalDescending(
       state.transactions.filter((transaction) => transaction.symbol === selectedSymbol)

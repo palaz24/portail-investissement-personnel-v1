@@ -55,6 +55,12 @@
     });
   }
 
+  function calculateOptionBookPrice(openingBasisRemaining, contractsOpen) {
+    const contracts = number(contractsOpen);
+    if (contracts <= 0) return null;
+    return number(openingBasisRemaining) / contracts / MULTIPLIER;
+  }
+
   function createSecurityLedger(security) {
     return {
       symbol: security.symbol,
@@ -439,6 +445,10 @@
           : option.openingBasisRemaining - currentValue;
         const position = {
           ...option,
+          bookPrice: calculateOptionBookPrice(
+            option.openingBasisRemaining,
+            option.contractsOpen
+          ),
           currentPrice,
           currentValue,
           unrealizedPL: unrealized
@@ -594,6 +604,7 @@
     calculatePortfolio,
     compareTransactionsChronologically,
     sortOpenOptionsByExpiration,
+    calculateOptionBookPrice,
     transactionCashFlow,
     roundMoney
   };

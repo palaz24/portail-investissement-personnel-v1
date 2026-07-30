@@ -1,4 +1,4 @@
-# Portail d’investissement personnel V1.2.1
+# Portail d’investissement personnel V1.2.2
 
 Ce site permet de suivre un petit portefeuille dans un compte sur marge avec des prix automatiques sécurisés et une saisie manuelle de secours.
 
@@ -184,9 +184,9 @@ Les tests automatisés se trouvent dans `tests`.
 
 Pour afficher les tests, ouvrez `tests/test-runner.html`.
 
-Résultat local V1.2.1 : **122 anciens tests sur 122 et 34 nouveaux tests sur 34**, soit **156 tests sur 156**.
+Résultat local V1.2.2 : **156 tests précédents sur 156 et 8 nouveaux tests du tableau sur 8**, soit **164 tests sur 164**.
 
-## Limites de la V1.2.1
+## Limites de la V1.2.2
 
 - Les données gratuites Market Data peuvent être retardées.
 - Une connexion Internet et un Worker Cloudflare configuré sont nécessaires aux prix automatiques.
