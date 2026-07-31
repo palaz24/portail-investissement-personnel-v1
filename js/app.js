@@ -9,8 +9,10 @@
   const Backup = window.PortalBackup;
   const History = window.PortalHistory;
   const Market = window.PortalMarketData;
+  const Charts = window.PortalSecurityCharts;
 
   let state = Storage.load();
+  state.priceHistory = Storage.normalizePriceHistory(state.priceHistory);
   let derived = Calc.calculatePortfolio(state);
   let currentView = "dashboard";
   let selectedSymbol = state.securities.find((security) => security.active !== false)?.symbol || "F";
@@ -20,6 +22,9 @@
   let operationMode = "ADD";
   let editingTransactionId = null;
   let operationContextDerived = derived;
+  let selectedChartOptionId = "";
+  let showAllStrikes = false;
+  const THEME_STORAGE_KEY = "portailInvestissementV1Theme";
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -122,6 +127,36 @@
   function valueClass(value) {
     const number = Number(value) || 0;
     return number > 0 ? "positive" : number < 0 ? "negative" : "";
+  }
+
+  function readTheme() {
+    try {
+      const saved = window.localStorage?.getItem(THEME_STORAGE_KEY);
+      if (["light", "dark"].includes(saved)) return saved;
+    } catch {
+      // Le thème par défaut demeure disponible sans stockage local.
+    }
+    return window.matchMedia?.("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  }
+
+  function applyTheme(theme) {
+    const normalized = theme === "light" ? "light" : "dark";
+    document.documentElement.dataset.theme = normalized;
+    const button = $("#themeToggle");
+    if (button) {
+      const next = normalized === "dark" ? "clair" : "sombre";
+      button.textContent = `Mode ${next}`;
+      button.setAttribute("aria-label", `Activer le mode ${next}`);
+    }
+    try {
+      window.localStorage?.setItem(THEME_STORAGE_KEY, normalized);
+    } catch {
+      // Le thème courant demeure actif pour cette séance.
+    }
+  }
+
+  function toggleTheme() {
+    applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light");
   }
 
   function toast(message, type = "success") {
@@ -612,17 +647,24 @@
     ];
     $("#securityDetails").innerHTML = details.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("");
 
-    const riskTone = security.riskLevel === "Élevé" ? "danger" : security.riskLevel === "Modéré" ? "warning" : "success";
-    $("#securityRisk").innerHTML = `
-      <span class="risk-indicator ${riskTone}">${escapeHtml(security.riskLevel)}</span>
-      <p>${security.riskLevel === "Élevé"
-        ? "Une exigence de marge manuelle est associée à une option courte."
-        : security.riskLevel === "Modéré"
-          ? "Une ou plusieurs options sont ouvertes. Surveillez leurs échéances."
-          : "Aucune option ouverte ni exigence particulière n’est détectée."}</p>`;
-
     const today = new Date().toISOString().slice(0, 10);
     const sortedOpenOptions = Calc.sortOpenOptionsByExpiration(security.optionsOpen, today);
+    const chartModel = Charts.buildModel({
+      symbol: selectedSymbol,
+      currentPrice: security.currentPrice,
+      currency: security.currency,
+      priceHistory: state.priceHistory,
+      options: security.optionsOpen,
+      includeExpired: showAllStrikes,
+      now: new Date()
+    });
+    if (!chartModel.options.some((option) => option.id === selectedChartOptionId)) {
+      selectedChartOptionId = "";
+    }
+    $("#securityPriceStrikeChart").innerHTML = Charts.renderPriceChart(chartModel, selectedChartOptionId);
+    $("#securityDistanceChart").innerHTML = Charts.renderDistanceChart(chartModel, selectedChartOptionId);
+    $("#toggleAllStrikes").textContent = showAllStrikes ? "Masquer les strikes expirés" : "Afficher tous les strikes";
+    $("#toggleAllStrikes").setAttribute("aria-pressed", String(showAllStrikes));
     $("#securityOptionsBody").innerHTML = sortedOpenOptions.length
       ? sortedOpenOptions.map((option) => {
         const isPutShort = option.side === "SHORT" && option.optionType === "PUT";
@@ -1436,6 +1478,28 @@
     });
     $("#securityPicker").addEventListener("change", (event) => {
       selectedSymbol = event.target.value;
+      selectedChartOptionId = "";
+      showAllStrikes = false;
+      renderSecurity();
+    });
+    $("#themeToggle").addEventListener("click", toggleTheme);
+    $("#toggleAllStrikes").addEventListener("click", () => {
+      showAllStrikes = !showAllStrikes;
+      selectedChartOptionId = "";
+      renderSecurity();
+    });
+    $("#securityChartsRegion").addEventListener("click", (event) => {
+      const target = event.target.closest("[data-chart-option]");
+      if (!target) return;
+      selectedChartOptionId = target.dataset.chartOption;
+      renderSecurity();
+    });
+    $("#securityChartsRegion").addEventListener("keydown", (event) => {
+      if (!["Enter", " "].includes(event.key)) return;
+      const target = event.target.closest("[data-chart-option]");
+      if (!target) return;
+      event.preventDefault();
+      selectedChartOptionId = target.dataset.chartOption;
       renderSecurity();
     });
     $("#portfolioBody").addEventListener("click", selectSecurityRow);
@@ -1464,10 +1528,13 @@
     const row = event.target.closest("[data-security-row]");
     if (!row) return;
     selectedSymbol = row.dataset.securityRow;
+    selectedChartOptionId = "";
+    showAllStrikes = false;
     switchView("security");
   }
 
   function initialize() {
+    applyTheme(readTheme());
     populateOperationSelects();
     bindEvents();
     renderAll();

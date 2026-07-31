@@ -4,6 +4,8 @@
   const ALLOWED_UNDERLYINGS = new Set(["F", "SPY"]);
   const MANUAL_COOLDOWN_MS = 5 * 60 * 1000;
   const AUTO_REFRESH_MS = 60 * 60 * 1000;
+  const PRICE_HISTORY_BUCKET_MS = 15 * 60 * 1000;
+  const PRICE_HISTORY_LIMIT = 5000;
   const DEFAULT_WORKER_URL = "https://portail-investissement-market-prices.palazz24.workers.dev";
   const META_STORAGE_KEY = "portailInvestissementV1MarketDataMeta";
 
@@ -70,6 +72,42 @@
     return JSON.parse(JSON.stringify(value));
   }
 
+  function appendRealPricePoint(priceHistory, point) {
+    const next = clone(priceHistory || {});
+    const symbol = String(point?.symbol || "").trim().toUpperCase();
+    const price = Number(point?.price);
+    const at = new Date(point?.at);
+    if (
+      !ALLOWED_UNDERLYINGS.has(symbol)
+      || !Number.isFinite(price)
+      || price <= 0
+      || Number.isNaN(at.getTime())
+      || point?.source !== "Market Data"
+    ) return next;
+    const normalizedPoint = {
+      symbol,
+      price,
+      at: at.toISOString(),
+      source: "Market Data",
+      currency: String(point.currency || "USD").toUpperCase(),
+    };
+    const bucket = Math.floor(at.getTime() / PRICE_HISTORY_BUCKET_MS);
+    const points = Array.isArray(next[symbol]) ? next[symbol].slice() : [];
+    const existingIndex = points.findIndex((item) => (
+      Math.floor(new Date(item.at).getTime() / PRICE_HISTORY_BUCKET_MS) === bucket
+    ));
+    if (existingIndex >= 0) {
+      if (new Date(points[existingIndex].at) <= at) points[existingIndex] = normalizedPoint;
+    } else {
+      points.push(normalizedPoint);
+    }
+    next[symbol] = points
+      .filter((item) => !Number.isNaN(new Date(item.at).getTime()))
+      .sort((a, b) => new Date(a.at) - new Date(b.at))
+      .slice(-PRICE_HISTORY_LIMIT);
+    return next;
+  }
+
   function optionContractMap(derived) {
     const map = new Map();
     for (const option of derived?.openOptions || []) {
@@ -86,6 +124,7 @@
     const next = clone(state);
     next.prices = clone(state?.prices || {});
     next.optionPrices = clone(state?.optionPrices || {});
+    next.priceHistory = clone(state?.priceHistory || {});
     const errors = [...(response?.errors || [])];
     let stocksUpdated = 0;
     let optionsUpdated = 0;
@@ -105,6 +144,14 @@
         dataType: response.dataType || "REALTIME_OR_DELAYED",
         updatedAt: quote.updatedAt || response.retrievedAt
       };
+      const currency = state?.securities?.find((security) => security.symbol === symbol)?.currency || "USD";
+      next.priceHistory = appendRealPricePoint(next.priceHistory, {
+        symbol,
+        price,
+        at: quote.updatedAt || response.retrievedAt,
+        source: "Market Data",
+        currency
+      });
       stocksUpdated += 1;
     }
 
@@ -177,6 +224,8 @@
     ALLOWED_UNDERLYINGS,
     MANUAL_COOLDOWN_MS,
     AUTO_REFRESH_MS,
+    PRICE_HISTORY_BUCKET_MS,
+    PRICE_HISTORY_LIMIT,
     DEFAULT_WORKER_URL,
     META_STORAGE_KEY,
     numberOrNull,
@@ -185,6 +234,7 @@
     selectOptionPrice,
     buildOccSymbol,
     buildQuoteRequest,
+    appendRealPricePoint,
     applyQuoteResponse,
     fetchQuotes,
     readMeta,

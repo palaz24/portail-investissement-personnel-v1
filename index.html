@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Portail local et privé pour suivre un portefeuille d’investissement personnel.">
-  <meta name="color-scheme" content="dark">
+  <meta name="color-scheme" content="dark light">
   <title>Portail d’investissement personnel</title>
-  <link rel="stylesheet" href="css/style.css?v=1.2.2-20260730a">
+  <link rel="stylesheet" href="css/style.css?v=1.3.0-20260730b">
 </head>
 <body>
   <a class="skip-link" href="#mainContent">Aller au contenu principal</a>
@@ -52,7 +52,7 @@
         <small>Conservées dans ce navigateur seulement</small>
       </div>
     </div>
-    <p class="version-label">Version 1.2.2 — prix comptable des options ouvertes</p>
+    <p class="version-label">Version 1.3.0 — graphiques des cours et des strikes</p>
   </aside>
 
   <div class="app-shell">
@@ -64,6 +64,7 @@
       </div>
       <div class="topbar-actions">
         <span class="save-state" id="saveState">● Sauvegarde locale active</span>
+        <button class="button button-secondary compact" id="themeToggle" type="button" aria-label="Activer le mode clair">Mode clair</button>
         <button class="button button-primary compact" id="topAddOperation" type="button">+ Ajouter</button>
       </div>
     </header>
@@ -161,16 +162,25 @@
 
         <div class="kpi-grid security-kpis" id="securityKpis"></div>
 
-        <div class="dashboard-grid">
-          <article class="panel">
-            <div class="panel-heading"><div><p class="eyebrow">POSITION</p><h3>Résumé du titre</h3></div></div>
-            <dl class="detail-list" id="securityDetails"></dl>
+        <article class="panel">
+          <div class="panel-heading"><div><p class="eyebrow">POSITION</p><h3>Résumé du titre</h3></div></div>
+          <dl class="detail-list" id="securityDetails"></dl>
+        </article>
+
+        <section class="security-charts-region" id="securityChartsRegion" aria-label="Graphiques du titre sélectionné">
+          <article class="panel chart-panel">
+            <div class="panel-heading">
+              <div><p class="eyebrow">COURS ET OPTIONS</p><h3>Cours du titre et strikes actifs</h3></div>
+              <button class="button button-secondary compact" id="toggleAllStrikes" type="button" aria-pressed="false">Afficher tous les strikes</button>
+            </div>
+            <div class="chart-shell" id="securityPriceStrikeChart"></div>
           </article>
-          <article class="panel">
-            <div class="panel-heading"><div><p class="eyebrow">RISQUE</p><h3>Niveau de risque simple</h3></div></div>
-            <div id="securityRisk" class="risk-card"></div>
+
+          <article class="panel chart-panel">
+            <div class="panel-heading"><div><p class="eyebrow">COMPARAISON NEUTRE</p><h3>Distance entre le cours et les strikes</h3></div></div>
+            <div class="chart-shell" id="securityDistanceChart"></div>
           </article>
-        </div>
+        </section>
 
         <article class="panel">
           <div class="panel-heading"><div><p class="eyebrow">OPTIONS</p><h3>Options ouvertes</h3></div></div>
@@ -476,14 +486,15 @@
   <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
   <div class="sidebar-overlay" id="sidebarOverlay" hidden></div>
 
-  <script src="js/collateral.js?v=1.2.2-20260730a"></script>
-  <script src="js/calculations.js?v=1.2.2-20260730a"></script>
-  <script src="js/storage.js?v=1.2.2-20260730a"></script>
-  <script src="js/forms.js?v=1.2.2-20260730a"></script>
-  <script src="js/transaction-corrections.js?v=1.2.2-20260730a"></script>
-  <script src="js/backup.js?v=1.2.2-20260730a"></script>
-  <script src="js/history-utils.js?v=1.2.2-20260730a"></script>
-  <script src="js/market-data.js?v=1.2.2-20260730a"></script>
-  <script src="js/app.js?v=1.2.2-20260730a"></script>
+  <script src="js/collateral.js?v=1.3.0-20260730b"></script>
+  <script src="js/calculations.js?v=1.3.0-20260730b"></script>
+  <script src="js/storage.js?v=1.3.0-20260730b"></script>
+  <script src="js/forms.js?v=1.3.0-20260730b"></script>
+  <script src="js/transaction-corrections.js?v=1.3.0-20260730b"></script>
+  <script src="js/backup.js?v=1.3.0-20260730b"></script>
+  <script src="js/history-utils.js?v=1.3.0-20260730b"></script>
+  <script src="js/market-data.js?v=1.3.0-20260730b"></script>
+  <script src="js/security-charts.js?v=1.3.0-20260730b"></script>
+  <script src="js/app.js?v=1.3.0-20260730b"></script>
 </body>
 </html>

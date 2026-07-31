@@ -1,4 +1,12 @@
-# Rapport final — Portail d’investissement personnel V1.2.2
+# Rapport final — Portail d’investissement personnel V1.3.0
+
+## Évolution V1.3.0 — cours, strikes et historique local
+
+La fiche du titre remplace l’affichage simplifié du risque par deux graphiques. Le premier combine les cotations réelles conservées localement, le prix actuel et les strikes actifs. Le second compare chaque strike au cours actuel en dollars et en pourcentage, sans présenter cette distance comme une mesure de risque.
+
+La collection privée `priceHistory` est alimentée uniquement après une réponse Market Data réussie. Elle ne contient aucun prix manuel, fictif, estimé ou reconstruit. Un seul point est conservé par symbole et période de 15 minutes, jusqu’à un maximum de 5 000 points par titre. Les anciennes sauvegardes sont migrées vers une collection vide et les nouvelles sauvegardes incluent les points réels disponibles.
+
+Les données, alertes et calculs internes de risque demeurent intacts même si la section visible « Risque » a été retirée de la fiche.
 
 ## Correctif V1.2.2 — prix comptable des options ouvertes
 
@@ -162,14 +170,14 @@ L’archive finale se nomme `Portail_Investissement_Personnel_V1.zip`. Elle cont
 
 ## Tests exécutés
 
-Les suites historiques et correctives demeurent réussies. Le portail possède maintenant 147 contrôles dans le navigateur et le Worker conserve ses 17 contrôles séparés.
+Les suites historiques et correctives demeurent réussies. Le portail possède maintenant 165 contrôles dans le navigateur et le Worker conserve ses 17 contrôles séparés.
 
 Résultats :
 
-- tests précédents : **156 / 156**;
-- nouveaux tests du tableau des options : **8 / 8**;
-- total : **164 / 164**;
-- portail dans le navigateur : **147 / 147**;
+- tests précédents : **164 / 164**;
+- nouveaux tests V1.3.0 : **18 / 18**;
+- total : **182 / 182**;
+- portail dans le navigateur : **165 / 165**;
 - erreurs JavaScript : **0**.
 
 Les détails sont dans `RESULTATS_TESTS.md`.
@@ -260,4 +268,4 @@ La clé principale du navigateur est :
 
 ## Conclusion
 
-Le Portail d’investissement personnel V1.2.2 demeure une interface statique compatible avec GitHub Pages. Il protège les données privées, conserve le Worker de prix inchangé et réussit 164 tests sur 164, dont 8 nouveaux contrôles propres au tableau des options ouvertes.
+Le Portail d’investissement personnel V1.3.0 demeure une interface statique compatible avec GitHub Pages. Il protège les données privées, conserve le Worker de prix inchangé et réussit 182 tests sur 182, dont 18 nouveaux contrôles propres à l’historique local et aux graphiques.

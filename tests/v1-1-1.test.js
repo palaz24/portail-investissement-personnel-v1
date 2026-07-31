@@ -17,9 +17,9 @@
     cssSource = fs.readFileSync(path.join(__dirname, "../css/style.css"), "utf8");
   } else {
     [appSource, indexSource, cssSource] = await Promise.all([
-      fetch("../js/app.js?v=1.2.2-20260730a").then((response) => response.text()),
-      fetch("../index.html?v=1.2.2-20260730a").then((response) => response.text()),
-      fetch("../css/style.css?v=1.2.2-20260730a").then((response) => response.text())
+      fetch("../js/app.js?v=1.3.0-20260730b").then((response) => response.text()),
+      fetch("../index.html?v=1.3.0-20260730b").then((response) => response.text()),
+      fetch("../css/style.css?v=1.3.0-20260730b").then((response) => response.text())
     ]);
   }
 

@@ -53,13 +53,16 @@ Portail_Investissement_Personnel_V1/
 - `js/backup.js` : exportation et restauration JSON.
 - `js/history-utils.js` : tri des historiques et des échéances.
 - `js/market-data.js` : symboles OCC, requêtes minimales et application sécurisée des prix.
+- `js/security-charts.js` : modèles et rendus des graphiques de cours, strikes et distances.
 - `data/demo-data.json` : exemples publics entièrement fictifs.
 - `tests/calculations.test.js` : 34 tests automatisés.
 - `tests/v1-1.test.js` : 21 tests supplémentaires du portail.
 - `tests/v1-1-1.test.js` : 25 tests de correction sécurisée.
 - `tests/v1-2.test.js` : 25 tests de garantie des puts vendus.
 - `tests/v1-2-1.test.js` : 42 tests de tri, notes, couverture par put long et prix comptable.
-- `tests/test-runner.html` : affichage des 147 tests du portail dans un navigateur.
+- `tests/v1-3.test.js` : 18 tests de priceHistory, graphiques, interactions, thèmes et mobile.
+- `tests/test-runner.html` : affichage des 165 tests du portail dans un navigateur.
 - `worker-market-prices` : Worker Cloudflare et 17 tests de sécurité.
 - `README.md` : instructions simples d’utilisation et de publication.
+- `DOCUMENTATION_GRAPHIQUES_V1_3.md` : fonctionnement de priceHistory et des deux graphiques.
 - `RAPPORT_FINAL.md` : rapport complet de livraison.

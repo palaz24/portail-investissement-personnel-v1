@@ -5,10 +5,52 @@
   const Collateral = isNode ? require("./collateral.js") : globalScope.PortalCollateral;
   const STORAGE_KEY = "portailInvestissementV1";
   const UNDO_STORAGE_KEY = "portailInvestissementV1Undo";
-  const APP_VERSION = "1.2.2";
+  const APP_VERSION = "1.3.0";
+  const PRICE_HISTORY_LIMIT = 5000;
 
   function clone(value) {
     return JSON.parse(JSON.stringify(value));
+  }
+
+  function normalizePriceHistory(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+    const normalized = {};
+    for (const [rawSymbol, rawPoints] of Object.entries(value)) {
+      const symbol = String(rawSymbol || "").trim().toUpperCase();
+      if (!symbol || !Array.isArray(rawPoints)) continue;
+      const buckets = new Map();
+      for (const rawPoint of rawPoints) {
+        const price = Number(rawPoint?.price);
+        const at = new Date(rawPoint?.at);
+        if (
+          String(rawPoint?.symbol || "").trim().toUpperCase() !== symbol
+          || !Number.isFinite(price)
+          || price <= 0
+          || Number.isNaN(at.getTime())
+          || rawPoint?.source !== "Market Data"
+        ) continue;
+        const bucket = Math.floor(at.getTime() / (15 * 60 * 1000));
+        const point = {
+          symbol,
+          price,
+          at: at.toISOString(),
+          source: "Market Data",
+          currency: String(rawPoint.currency || "USD").toUpperCase(),
+        };
+        const previous = buckets.get(bucket);
+        if (!previous || new Date(point.at) >= new Date(previous.at)) buckets.set(bucket, point);
+      }
+      normalized[symbol] = [...buckets.values()]
+        .sort((a, b) => new Date(a.at) - new Date(b.at))
+        .slice(-PRICE_HISTORY_LIMIT);
+    }
+    return normalized;
+  }
+
+  function migrateData(data) {
+    const migration = Collateral.migrateState(data);
+    migration.state.priceHistory = normalizePriceHistory(migration.state.priceHistory);
+    return migration;
   }
 
   function createBaseSecurities() {
@@ -121,6 +163,7 @@
           source: "Démonstration"
         }
       },
+      priceHistory: {},
       positionsInitiales: [],
       history: [
         {
@@ -158,6 +201,7 @@
       transactions: [],
       prices: {},
       optionPrices: {},
+      priceHistory: {},
       positionsInitiales: [],
       history: [{ id: `HIST-${Date.now()}`, at: now, action: "EMPTY_PORTFOLIO_CREATED" }]
     };
@@ -182,6 +226,9 @@
     }
     if (!data.optionPrices || typeof data.optionPrices !== "object" || Array.isArray(data.optionPrices)) {
       errors.push("La section des prix d’options est invalide.");
+    }
+    if (data.priceHistory != null && (typeof data.priceHistory !== "object" || Array.isArray(data.priceHistory))) {
+      errors.push("La section de l’historique des prix est invalide.");
     }
 
     const securityIds = new Set();
@@ -234,7 +281,7 @@
     if (!raw) return getDemoData();
     try {
       const parsed = JSON.parse(raw);
-      const migration = Collateral.migrateState(parsed);
+      const migration = migrateData(parsed);
       migration.state.version = APP_VERSION;
       const validation = validateData(migration.state);
       return validation.valid ? migration.state : getDemoData();
@@ -246,6 +293,7 @@
   function save(data, action = "AUTO_SAVE", metadata = {}) {
     const next = clone(data);
     next.version = APP_VERSION;
+    next.priceHistory = normalizePriceHistory(next.priceHistory);
     next.updatedAt = new Date().toISOString();
     next.history = Array.isArray(next.history) ? next.history.slice(-49) : [];
     const historyEvent = {
@@ -268,6 +316,7 @@
   function savePriceUpdate(data) {
     const next = clone(data);
     next.version = APP_VERSION;
+    next.priceHistory = normalizePriceHistory(next.priceHistory);
     next.updatedAt = new Date().toISOString();
     const validation = validateData(next);
     if (!validation.valid) {
@@ -309,7 +358,7 @@
       const raw = globalScope.localStorage?.getItem(UNDO_STORAGE_KEY);
       if (!raw) return null;
       const parsed = JSON.parse(raw);
-      const migration = Collateral.migrateState(parsed);
+      const migration = migrateData(parsed);
       migration.state.version = APP_VERSION;
       return validateData(migration.state).valid ? migration.state : null;
     } catch {
@@ -329,10 +378,12 @@
     STORAGE_KEY,
     UNDO_STORAGE_KEY,
     APP_VERSION,
+    PRICE_HISTORY_LIMIT,
     getDemoData,
     getEmptyData,
     validateData,
-    migrateData: Collateral.migrateState,
+    normalizePriceHistory,
+    migrateData,
     load,
     save,
     savePriceUpdate,

@@ -1,4 +1,13 @@
-# Portail d’investissement personnel V1.2.2
+# Portail d’investissement personnel V1.3.0
+
+## Nouveautés V1.3.0
+
+La fiche du titre présente maintenant deux graphiques complémentaires :
+
+- **Cours du titre et strikes actifs** : courbe des cotations réelles conservées localement, prix actuel et lignes des strikes actifs;
+- **Distance entre le cours et les strikes** : comparaison neutre en dollars et en pourcentage, sans interprétation du risque.
+
+L’historique `priceHistory` se construit progressivement à partir des cotations Market Data réellement reçues. Il demeure dans le navigateur, évite les doublons dans une même période de 15 minutes et conserve au maximum 5 000 points par titre. Les anciennes sauvegardes restent compatibles et les nouvelles sauvegardes incluent cet historique privé.
 
 Ce site permet de suivre un petit portefeuille dans un compte sur marge avec des prix automatiques sécurisés et une saisie manuelle de secours.
 
@@ -184,11 +193,12 @@ Les tests automatisés se trouvent dans `tests`.
 
 Pour afficher les tests, ouvrez `tests/test-runner.html`.
 
-Résultat local V1.2.2 : **156 tests précédents sur 156 et 8 nouveaux tests du tableau sur 8**, soit **164 tests sur 164**.
+Résultat local V1.3.0 : **164 tests précédents sur 164 et 18 nouveaux tests sur 18**, soit **182 tests sur 182**.
 
-## Limites de la V1.2.2
+## Limites de la V1.3.0
 
 - Les données gratuites Market Data peuvent être retardées.
+- L’historique graphique commence au premier prix réel reçu par cette version; aucun cours antérieur n’est inventé.
 - Une connexion Internet et un Worker Cloudflare configuré sont nécessaires aux prix automatiques.
 - Les données d’un navigateur ne sont pas automatiquement copiées vers un autre appareil.
 - Les sauvegardes JSON ne sont pas chiffrées.
