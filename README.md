@@ -1,13 +1,21 @@
-# Portail d’investissement personnel V1.3.0
+# Portail d’investissement personnel V1.4.0
 
-## Nouveautés V1.3.0
+## Nouveautés V1.4.0
 
-La fiche du titre présente maintenant deux graphiques complémentaires :
+La page **Studio d’options** permet de construire et d’analyser localement des stratégies comprenant des actions, des calls et des puts. Elle offre 20 modèles modifiables, un graphique de profit/perte, une projection binomiale américaine CRR, les principales Greeks, un tableau analytique, une comparaison originale/ajustée et des sauvegardes locales.
+
+Les deux graphiques V1.3.0 ont été retirés de la fiche du titre. L’ancien champ privé `priceHistory` demeure lisible dans les sauvegardes V1.3.0, mais il n’est plus affiché ni alimenté. Aucune route historique et aucune donnée fictive n’ont été ajoutées.
+
+Le Studio fonctionne hors ligne sans CDN ni service externe. Les champs sont des hypothèses saisies par l’utilisateur et ne sont jamais présentés comme des cotations actuelles.
+
+## Rappel de la V1.3.0 — fonctions retirées en V1.4.0
+
+La V1.3.0 présentait deux graphiques maintenant retirés :
 
 - **Cours du titre et strikes actifs** : courbe des cotations réelles conservées localement, prix actuel et lignes des strikes actifs;
 - **Distance entre le cours et les strikes** : comparaison neutre en dollars et en pourcentage, sans interprétation du risque.
 
-L’historique `priceHistory` se construit progressivement à partir des cotations Market Data réellement reçues. Il demeure dans le navigateur, évite les doublons dans une même période de 15 minutes et conserve au maximum 5 000 points par titre. Les anciennes sauvegardes restent compatibles et les nouvelles sauvegardes incluent cet historique privé.
+Les anciennes sauvegardes contenant `priceHistory` restent compatibles. La V1.4.0 n’affiche plus cet historique et n’y ajoute plus de points.
 
 Ce site permet de suivre un petit portefeuille dans un compte sur marge avec des prix automatiques sécurisés et une saisie manuelle de secours.
 
@@ -39,6 +47,16 @@ Conservez-les dans un dossier privé sur votre ordinateur.
 2. Double-cliquez sur `index.html`.
 3. Le site s’ouvre dans votre navigateur.
 4. Le bandeau orange confirme que les premières données sont fictives.
+
+## Utiliser le Studio d’options
+
+1. Ouvrez **Studio d’options** dans la navigation, ou **Analyser une stratégie** depuis la fiche Ford ou SPY.
+2. Choisissez un modèle ou ajoutez vous-même des jambes.
+3. Saisissez le cours de référence, les primes, les strikes, les échéances et les hypothèses.
+4. Consultez le graphique, les métriques et le tableau analytique.
+5. Enregistrez la stratégie localement ou exportez-la en JSON.
+
+Le lien provenant d’une fiche transmet uniquement le symbole, le nom public, le prix public déjà affiché et la devise. Il ne transmet aucune transaction, position, note, valeur comptable ou donnée de compte.
 
 Pour une utilisation régulière sur plusieurs appareils, utilisez plutôt GitHub Pages. Chaque appareil possède toutefois son propre stockage local : une sauvegarde JSON est nécessaire pour transférer les données.
 
@@ -193,9 +211,15 @@ Les tests automatisés se trouvent dans `tests`.
 
 Pour afficher les tests, ouvrez `tests/test-runner.html`.
 
-Résultat local V1.3.0 : **164 tests précédents sur 164 et 18 nouveaux tests sur 18**, soit **182 tests sur 182**.
+Résultat local V1.4.0 : **182 tests existants sur 182 et 61 nouveaux tests sur 61**, soit **243 tests sur 243**, en incluant les 17 tests inchangés du Worker.
 
-## Limites de la V1.3.0
+## Limites de la V1.4.0
+
+- Les valeurs avant échéance, les Greeks et le capital requis sont des estimations dépendantes des hypothèses.
+- Les stratégies multiéchéances ne permettent pas toujours de déterminer avec certitude un profit maximal ou une perte maximale.
+- Le Studio ne reproduit pas les règles exactes de marge Wealthsimple et ne constitue pas un conseil financier.
+
+## Limites historiques et générales
 
 - Les données gratuites Market Data peuvent être retardées.
 - L’historique graphique commence au premier prix réel reçu par cette version; aucun cours antérieur n’est inventé.

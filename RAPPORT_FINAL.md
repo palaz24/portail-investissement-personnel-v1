@@ -1,4 +1,12 @@
-# Rapport final — Portail d’investissement personnel V1.3.0
+# Rapport final — Portail d’investissement personnel V1.4.0
+
+## Évolution V1.4.0 — Options Strategy Studio
+
+La V1.4.0 ajoute une page locale distincte pour construire, valoriser, comparer, sauvegarder et partager des hypothèses de stratégies d’options. Le moteur utilise un arbre binomial américain Cox–Ross–Rubinstein avec exercice anticipé, dividende et 50 à 500 pas. Les résultats à l’échéance sont exacts selon les flux saisis; les valeurs avant échéance, les Greeks et les structures multiéchéances sont clairement présentées comme estimatives.
+
+Les anciens graphiques de cours et de distance ont été retirés de la fiche du titre. La compatibilité de lecture de `priceHistory` est préservée, sans nouvel ajout de points. Le Worker et sa configuration sont inchangés.
+
+La validation locale totalise 243 tests réussis sur 243, dont 182 tests existants et 61 nouveaux tests du Studio.
 
 ## Évolution V1.3.0 — cours, strikes et historique local
 
@@ -170,14 +178,14 @@ L’archive finale se nomme `Portail_Investissement_Personnel_V1.zip`. Elle cont
 
 ## Tests exécutés
 
-Les suites historiques et correctives demeurent réussies. Le portail possède maintenant 165 contrôles dans le navigateur et le Worker conserve ses 17 contrôles séparés.
+Les suites historiques et correctives demeurent réussies. Le portail possède maintenant 226 contrôles dans le navigateur et le Worker conserve ses 17 contrôles séparés.
 
 Résultats :
 
-- tests précédents : **164 / 164**;
-- nouveaux tests V1.3.0 : **18 / 18**;
-- total : **182 / 182**;
-- portail dans le navigateur : **165 / 165**;
+- tests existants V1.3.0 : **182 / 182**;
+- nouveaux tests V1.4.0 : **61 / 61**;
+- total : **243 / 243**;
+- portail dans le navigateur : **226 / 226**;
 - erreurs JavaScript : **0**.
 
 Les détails sont dans `RESULTATS_TESTS.md`.
@@ -268,4 +276,4 @@ La clé principale du navigateur est :
 
 ## Conclusion
 
-Le Portail d’investissement personnel V1.3.0 demeure une interface statique compatible avec GitHub Pages. Il protège les données privées, conserve le Worker de prix inchangé et réussit 182 tests sur 182, dont 18 nouveaux contrôles propres à l’historique local et aux graphiques.
+Le Portail d’investissement personnel V1.4.0 demeure une interface statique compatible avec GitHub Pages. Il protège les données privées, conserve le Worker de prix inchangé et réussit 243 tests sur 243. La branche locale est prête pour une validation avant toute fusion ou publication.

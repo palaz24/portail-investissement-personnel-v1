@@ -1,8 +1,10 @@
-# Graphiques des cours et des strikes — V1.3.0
+# Graphiques des cours et des strikes — archive V1.3.0
+
+> **V1.4.0 :** les deux graphiques décrits ci-dessous ont été retirés de la fiche du titre. Cette documentation est conservée uniquement comme historique. Les anciennes sauvegardes `priceHistory` restent lisibles, mais aucun nouveau point n’est ajouté.
 
 ## Historique privé `priceHistory`
 
-Le portail enregistre un point uniquement lorsqu’une cotation Market Data valide est reçue avec succès. Chaque point contient le symbole, le prix, la date et l’heure, la source ainsi que la devise.
+En V1.3.0, le portail enregistrait un point uniquement lorsqu’une cotation Market Data valide était reçue avec succès. Chaque point contenait le symbole, le prix, la date et l’heure, la source ainsi que la devise.
 
 L’historique demeure dans le navigateur et dans les sauvegardes JSON privées de l’utilisateur. Aucun point n’est ajouté au fichier public de démonstration. Les prix manuels, fictifs, estimés ou reconstruits ne sont jamais ajoutés à cet historique.
 
