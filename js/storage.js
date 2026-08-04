@@ -5,7 +5,7 @@
   const Collateral = isNode ? require("./collateral.js") : globalScope.PortalCollateral;
   const STORAGE_KEY = "portailInvestissementV1";
   const UNDO_STORAGE_KEY = "portailInvestissementV1Undo";
-  const APP_VERSION = "1.3.0";
+  const APP_VERSION = "1.4.0";
   const PRICE_HISTORY_LIMIT = 5000;
 
   function clone(value) {

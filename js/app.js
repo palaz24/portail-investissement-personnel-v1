@@ -9,7 +9,6 @@
   const Backup = window.PortalBackup;
   const History = window.PortalHistory;
   const Market = window.PortalMarketData;
-  const Charts = window.PortalSecurityCharts;
 
   let state = Storage.load();
   state.priceHistory = Storage.normalizePriceHistory(state.priceHistory);
@@ -22,8 +21,6 @@
   let operationMode = "ADD";
   let editingTransactionId = null;
   let operationContextDerived = derived;
-  let selectedChartOptionId = "";
-  let showAllStrikes = false;
   const THEME_STORAGE_KEY = "portailInvestissementV1Theme";
 
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -621,6 +618,7 @@
     $("#securityPriceDate").textContent = priceInfo?.updatedAt
       ? `${priceInfo.source === "Market Data" ? "● Market Data · " : "Prix manuel · "}mis à jour ${formatDateTime(priceInfo.updatedAt)}`
       : "prix non saisi";
+    $("#analyzeStrategy").hidden = !["F", "SPY"].includes(security.symbol);
 
     $("#securityKpis").innerHTML = [
       kpiCard("Actions détenues", formatNumber(security.shares, 6)),
@@ -649,22 +647,6 @@
 
     const today = new Date().toISOString().slice(0, 10);
     const sortedOpenOptions = Calc.sortOpenOptionsByExpiration(security.optionsOpen, today);
-    const chartModel = Charts.buildModel({
-      symbol: selectedSymbol,
-      currentPrice: security.currentPrice,
-      currency: security.currency,
-      priceHistory: state.priceHistory,
-      options: security.optionsOpen,
-      includeExpired: showAllStrikes,
-      now: new Date()
-    });
-    if (!chartModel.options.some((option) => option.id === selectedChartOptionId)) {
-      selectedChartOptionId = "";
-    }
-    $("#securityPriceStrikeChart").innerHTML = Charts.renderPriceChart(chartModel, selectedChartOptionId);
-    $("#securityDistanceChart").innerHTML = Charts.renderDistanceChart(chartModel, selectedChartOptionId);
-    $("#toggleAllStrikes").textContent = showAllStrikes ? "Masquer les strikes expirés" : "Afficher tous les strikes";
-    $("#toggleAllStrikes").setAttribute("aria-pressed", String(showAllStrikes));
     $("#securityOptionsBody").innerHTML = sortedOpenOptions.length
       ? sortedOpenOptions.map((option) => {
         const isPutShort = option.side === "SHORT" && option.optionType === "PUT";
@@ -1478,29 +1460,14 @@
     });
     $("#securityPicker").addEventListener("change", (event) => {
       selectedSymbol = event.target.value;
-      selectedChartOptionId = "";
-      showAllStrikes = false;
       renderSecurity();
     });
     $("#themeToggle").addEventListener("click", toggleTheme);
-    $("#toggleAllStrikes").addEventListener("click", () => {
-      showAllStrikes = !showAllStrikes;
-      selectedChartOptionId = "";
-      renderSecurity();
-    });
-    $("#securityChartsRegion").addEventListener("click", (event) => {
-      const target = event.target.closest("[data-chart-option]");
-      if (!target) return;
-      selectedChartOptionId = target.dataset.chartOption;
-      renderSecurity();
-    });
-    $("#securityChartsRegion").addEventListener("keydown", (event) => {
-      if (!["Enter", " "].includes(event.key)) return;
-      const target = event.target.closest("[data-chart-option]");
-      if (!target) return;
-      event.preventDefault();
-      selectedChartOptionId = target.dataset.chartOption;
-      renderSecurity();
+    $("#analyzeStrategy").addEventListener("click", () => {
+      const security = derived.securities.find((item) => item.symbol === selectedSymbol);
+      if (!security || !["F", "SPY"].includes(security.symbol)) return;
+      const params = new URLSearchParams({ symbol: security.symbol, name: security.name, price: String(security.currentPrice || ""), currency: security.currency || "USD" });
+      window.location.href = `options-studio.html?${params.toString()}`;
     });
     $("#portfolioBody").addEventListener("click", selectSecurityRow);
     $("#portfolioBody").addEventListener("keydown", (event) => {
@@ -1528,8 +1495,6 @@
     const row = event.target.closest("[data-security-row]");
     if (!row) return;
     selectedSymbol = row.dataset.securityRow;
-    selectedChartOptionId = "";
-    showAllStrikes = false;
     switchView("security");
   }
 

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="fr-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Constructeur local et privé de stratégies d’options.">
+  <meta name="color-scheme" content="dark light">
+  <title>Options Strategy Studio — Mon Portefeuille</title>
+  <link rel="stylesheet" href="css/style.css?v=1.4.0-20260804">
+  <link rel="stylesheet" href="css/options-studio.css?v=1.4.0-20260804d">
+</head>
+<body class="studio-body">
+  <a class="skip-link" href="#mainContent">Aller au contenu principal</a>
+  <aside class="sidebar" id="sidebar" aria-label="Navigation principale">
+    <div class="brand"><div class="brand-mark" aria-hidden="true">P</div><div><strong>Mon Portefeuille</strong><span>Suivi personnel</span></div><button class="icon-button sidebar-close" id="sidebarClose" type="button" aria-label="Fermer le menu">×</button></div>
+    <nav class="main-nav">
+      <a class="nav-item" href="index.html"><span aria-hidden="true">⌂</span> Tableau de bord</a>
+      <a class="nav-item" href="index.html#fiche"><span aria-hidden="true">◎</span> Fiche du titre</a>
+      <a class="nav-item active" href="options-studio.html" aria-current="page"><span aria-hidden="true">⌁</span> Studio d’options</a>
+    </nav>
+    <div class="privacy-card"><span class="status-dot" aria-hidden="true"></span><div><strong>Données privées</strong><small>Conservées dans ce navigateur seulement</small></div></div>
+    <p class="version-label">Version 1.4.0 — Options Strategy Studio</p>
+  </aside>
+
+  <div class="app-shell studio-shell">
+    <header class="topbar">
+      <button class="icon-button mobile-menu" id="mobileMenu" type="button" aria-label="Ouvrir le menu">☰</button>
+      <div><p class="eyebrow">OUTIL LOCAL ET PRIVÉ</p><h1>Options Strategy Studio</h1><p class="studio-subtitle">Constructeur et analyseur local de stratégies d’options</p><p class="studio-reference" id="studioReference"></p></div>
+      <div class="topbar-actions"><span class="save-state" id="saveState">● Calcul local</span><button class="button button-secondary compact" id="themeToggle" type="button">Mode clair</button></div>
+    </header>
+
+    <main id="mainContent" tabindex="-1" class="studio-main">
+      <section class="studio-notice" role="note"><strong>Outil pédagogique d’analyse de scénarios.</strong> Les valeurs avant échéance, les Greeks, les exigences de capital et les résultats multiéchéances sont des estimations fondées sur les hypothèses saisies. Les résultats réels peuvent différer en raison notamment du bid-ask, de la liquidité, des dividendes, de l’exercice anticipé, de l’assignation, des commissions, de la volatilité et des règles du courtier. Aucun prix fictif n’est ajouté au portail.</section>
+      <div class="studio-toolbar" aria-label="Actions sur la stratégie">
+        <label>Modèle<select id="templateSelect"></select></label>
+        <button class="button button-secondary" id="loadTemplate" type="button">Charger le modèle</button>
+        <label>Stratégie enregistrée<select id="savedStrategySelect"><option value="">Aucune</option></select></label>
+        <button class="button button-secondary" id="loadSavedStrategy" type="button">Ouvrir</button>
+        <button class="button button-secondary" id="saveStrategy" type="button">Enregistrer localement</button>
+        <button class="button button-secondary" id="duplicateStrategy" type="button">Dupliquer</button>
+        <button class="button button-secondary" id="exportJson" type="button">Exporter JSON</button>
+        <button class="button button-secondary" id="importJson" type="button">Importer JSON</button>
+        <input id="importFile" type="file" accept="application/json,.json" hidden>
+        <button class="button button-secondary" id="shareStrategy" type="button">Partager sans données privées</button>
+        <button class="button button-ghost" id="resetStrategy" type="button">Réinitialiser</button>
+      </div>
+
+      <div class="studio-layout">
+        <aside class="panel studio-settings" aria-labelledby="settingsTitle">
+          <div class="panel-heading"><div><p class="eyebrow">HYPOTHÈSES</p><h2 id="settingsTitle">Paramètres</h2></div></div>
+          <form id="strategyForm" class="studio-form">
+            <label>Nom<input name="name" maxlength="120"></label>
+            <div class="field-pair"><label>Symbole<input name="symbol" list="symbolChoices" maxlength="12"><datalist id="symbolChoices"><option value="F"><option value="SPY"><option value="QQQ"><option value="IWM"><option value="TLT"></datalist></label><label>Devise<input name="currency" maxlength="6"></label></div>
+            <label>Nom public du titre<input name="securityName" maxlength="120"></label>
+            <div class="field-pair"><label>Cours actuel<input name="underlyingPrice" type="number" min="0.01" step="0.01"></label><label>Multiplicateur<input name="multiplier" type="number" min="1" step="1"></label></div>
+            <div class="field-pair"><label>Date d’évaluation<input name="valuationDate" type="date"></label><label>Date analysée<input name="analysisDate" type="date"></label></div>
+            <div class="field-pair"><label>Taux sans risque (%)<input name="riskFreeRatePercent" type="number" step="0.01"></label><label>Dividende (%)<input name="dividendYieldPercent" type="number" step="0.01"></label></div>
+            <div class="field-pair"><label>Volatilité (%)<input name="impliedVolatilityPercent" type="number" min="0" step="0.1"></label><label>Étapes CRR<select name="steps"><option>50</option><option>100</option><option selected>200</option><option>300</option><option>500</option></select></label></div>
+            <label>Méthode de valorisation<select name="pricingMethod"><option value="american-binomial-crr">Binomiale américaine CRR</option></select></label>
+            <div class="field-pair"><label>Commission option<input name="optionCommission" type="number" min="0" step="0.01"></label><label>Commission action<input name="stockCommission" type="number" min="0" step="0.01"></label></div>
+            <label>Plage du graphique<select name="rangeMode"><option value="auto">Automatique</option><option value="10">± 10 %</option><option value="20">± 20 %</option><option value="30">± 30 %</option><option value="custom">Personnalisée</option></select></label>
+            <div class="field-pair"><label>Minimum<input name="rangeMin" type="number" min="0" step="0.01"></label><label>Maximum<input name="rangeMax" type="number" min="0" step="0.01"></label></div>
+            <label>Pas du tableau<input name="tableStep" type="number" min="0.01" step="0.01"></label>
+          </form>
+        </aside>
+
+        <section class="studio-center">
+          <article class="panel studio-summary" aria-labelledby="summaryTitle"><div class="panel-heading"><div><p class="eyebrow">RÉSULTATS</p><h2 id="summaryTitle">Sommaire de la stratégie</h2></div><button class="button button-secondary compact" id="setComparison" type="button">Définir comme originale</button></div><div class="studio-metrics" id="strategyMetrics"></div><div id="comparisonMetrics" class="comparison-metrics" hidden></div><div id="analysisWarnings" class="studio-warnings" aria-live="polite"></div></article>
+          <article class="panel chart-panel"><div class="panel-heading"><div><p class="eyebrow">PROJECTION</p><h2>Profit et perte</h2></div><button class="button button-ghost compact" id="clearComparison" type="button" hidden>Retirer la comparaison</button></div><div class="studio-sliders"><label>Date projetée <strong id="analysisDateLabel"></strong><input id="analysisDateSlider" type="range" min="0" max="730" step="1"></label><label>Volatilité générale <strong id="volatilityLabel"></strong><input id="volatilitySlider" type="range" min="0" max="200" step="1"></label></div><div id="strategyChart"></div></article>
+          <article class="panel"><div class="panel-heading"><div><p class="eyebrow">ANALYSE DÉTAILLÉE</p><h2>Tableau des résultats</h2></div><button class="button button-secondary compact" id="exportCsv" type="button">Exporter CSV</button></div><div class="table-wrap"><table><thead><tr><th><button type="button" data-table-sort="price">Cours</button></th><th><button type="button" data-table-sort="expiration">P/L échéance</button></th><th><button type="button" data-table-sort="selectedDate">P/L date choisie</button></th><th><button type="button" data-table-sort="returnOnCapital">Rendement</button></th><th><button type="button" data-table-sort="delta">Delta estimé</button></th></tr></thead><tbody id="analysisTable"></tbody></table></div></article>
+        </section>
+
+        <aside class="panel studio-legs" aria-labelledby="legsTitle"><div class="panel-heading"><div><p class="eyebrow">COMPOSITION</p><h2 id="legsTitle">Jambes</h2></div><span class="count-badge" id="legCount">0</span></div><div class="button-row studio-add-buttons"><button class="button button-secondary compact" data-add-leg="stock" type="button">+ Action</button><button class="button button-secondary compact" data-add-leg="call" type="button">+ Call</button><button class="button button-secondary compact" data-add-leg="put" type="button">+ Put</button></div><div id="legsList" class="legs-list"></div></aside>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="shareDialog" class="studio-dialog"><form method="dialog"><h2>Partager sans données privées</h2><p>Le lien contient seulement les hypothèses publiques de la stratégie. Les notes et les prix de marché saisis sont exclus.</p><textarea id="sharePreview" readonly rows="6"></textarea><p id="shareLength" class="muted"></p><div class="button-row"><button class="button button-primary" id="copyShare" type="button">Copier le lien</button><button class="button button-secondary" value="cancel">Fermer</button></div></form></dialog>
+
+  <script src="js/options-engine.js?v=1.4.0-20260804d"></script>
+  <script src="js/options-storage.js?v=1.4.0-20260804d"></script>
+  <script src="js/options-chart.js?v=1.4.0-20260804d"></script>
+  <script src="js/options-studio.js?v=1.4.0-20260804d"></script>
+</body>
+</html>
