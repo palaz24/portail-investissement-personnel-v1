@@ -26,6 +26,7 @@
 .comparison-grid span { color: var(--muted); }
 .comparison-grid::before { content: ""; }.comparison-grid::after { content: "Originale    Ajustée"; white-space: pre; grid-column: 2 / 4; color: var(--muted); font-weight: 700; }
 .studio-center th button { min-height: 44px; border: 0; background: transparent; color: inherit; font: inherit; font-weight: 800; cursor: pointer; text-align: left; }
+.studio-table-note { margin: 5px 0 0; color: var(--muted); font-size: .78rem; line-height: 1.4; }
 .studio-chart-wrap { min-width: 0; }
 .studio-chart { display: block; width: 100%; height: auto; min-height: 280px; color: var(--muted); font-size: 12px; overflow: visible; }
 .studio-grid { stroke: var(--border); stroke-width: 1; }

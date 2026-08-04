@@ -16,13 +16,29 @@
     return new Intl.NumberFormat("fr-CA", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(Number(value) || 0);
   }
 
+  function getScenarioPriceStep(symbol, fallback = 1) {
+    return String(symbol || "").trim().toUpperCase() === "F" ? 0.5 : Math.max(0.01, Number(fallback) || 1);
+  }
+
+  function isFordSymbol(symbol) {
+    return String(symbol || "").trim().toUpperCase() === "F";
+  }
+
+  function fordScenarioPrices(range) {
+    const firstHalfDollar = Math.ceil((Number(range.min) - 1e-9) * 2);
+    const lastHalfDollar = Math.floor((Number(range.max) + 1e-9) * 2);
+    const count = Math.max(0, lastHalfDollar - firstHalfDollar + 1);
+    return Array.from({ length: Math.min(5000, count) }, (_, index) => (firstHalfDollar + index) / 2);
+  }
+
   function buildSeries(strategyInput, analysisInput, pointCount = 121) {
     const analysis = analysisInput || Engine.analyze(strategyInput);
     const strategy = analysis.strategy;
+    const fordPrices = isFordSymbol(strategy.symbol) ? fordScenarioPrices(analysis.range) : null;
     const count = Math.max(21, Math.min(401, Number(pointCount) || 121));
     const span = analysis.range.max - analysis.range.min || 1;
-    const points = Array.from({ length: count }, (_, index) => {
-      const price = analysis.range.min + (span * index) / (count - 1);
+    const prices = fordPrices?.length ? fordPrices : Array.from({ length: count }, (_, index) => analysis.range.min + (span * index) / (count - 1));
+    const points = prices.map((price) => {
       return {
         price,
         expiration: Engine.expirationPL(strategy, price),
@@ -56,7 +72,9 @@
     const series = buildSeries(strategyInput, options.analysis);
     const comparisonSeries = options.comparison ? buildSeries(options.comparison) : null;
     const scale = scaleModel(series, comparisonSeries);
-    const xTicks = Array.from({ length: 6 }, (_, index) => scale.minX + ((scale.maxX - scale.minX) * index) / 5);
+    const xTicks = isFordSymbol(series.strategy.symbol)
+      ? Array.from(new Set(Array.from({ length: Math.min(6, series.points.length) }, (_, index) => series.points[Math.round(((series.points.length - 1) * index) / Math.max(1, Math.min(6, series.points.length) - 1))].price)))
+      : Array.from({ length: 6 }, (_, index) => scale.minX + ((scale.maxX - scale.minX) * index) / 5);
     const yTicks = Array.from({ length: 5 }, (_, index) => scale.minY + ((scale.maxY - scale.minY) * index) / 4);
     const grid = [
       ...xTicks.map((value) => `<line x1="${scale.x(value)}" y1="${PAD.top}" x2="${scale.x(value)}" y2="${HEIGHT - PAD.bottom}" class="studio-grid"/><text x="${scale.x(value)}" y="${HEIGHT - 22}" text-anchor="middle">${escapeHtml(value.toFixed(2))}</text>`),
@@ -84,9 +102,11 @@
   function buildTable(strategyInput, analysisInput) {
     const analysis = analysisInput || Engine.analyze(strategyInput);
     const strategy = analysis.strategy;
-    const step = Math.max(0.01, Number(strategy.tableStep) || 1);
+    const step = getScenarioPriceStep(strategy.symbol, strategy.tableStep);
     const rows = [];
-    for (let price = analysis.range.min; price <= analysis.range.max + step / 2 && rows.length < 500; price += step) {
+    const fordPrices = isFordSymbol(strategy.symbol) ? fordScenarioPrices(analysis.range) : null;
+    const prices = fordPrices || Array.from({ length: 500 }, (_, index) => analysis.range.min + index * step).filter((price) => price <= analysis.range.max + step / 2);
+    for (const price of prices) {
       const expiration = Engine.expirationPL(strategy, price);
       const selectedDate = Engine.strategyPLAtDate(strategy, price, strategy.analysisDate);
       const h = Math.max(0.01, price * 0.001);
@@ -96,11 +116,29 @@
     return rows;
   }
 
+  function selectRepresentativeRows(rowsInput, options = {}) {
+    const maxRows = Math.max(1, Math.floor(Number(options.maxRows) || 10));
+    const rows = [...(rowsInput || [])].sort((a, b) => a.price - b.price);
+    if (rows.length <= maxRows) return rows;
+    const selected = new Set([0, rows.length - 1]);
+    const nearestIndex = (target) => rows.reduce((best, row, index) => Math.abs(row.price - target) < Math.abs(rows[best].price - target) ? index : best, 0);
+    if (Number.isFinite(Number(options.currentPrice))) selected.add(nearestIndex(Number(options.currentPrice)));
+    for (const value of options.breakEvens || []) {
+      if (selected.size >= maxRows) break;
+      if (Number.isFinite(Number(value))) selected.add(nearestIndex(Number(value)));
+    }
+    for (let slot = 0; selected.size < maxRows && slot < maxRows; slot += 1) {
+      selected.add(Math.round(((rows.length - 1) * slot) / Math.max(1, maxRows - 1)));
+    }
+    for (let index = 0; selected.size < maxRows && index < rows.length; index += 1) selected.add(index);
+    return [...selected].sort((a, b) => a - b).slice(0, maxRows).map((index) => rows[index]).sort((a, b) => a.price - b.price);
+  }
+
   function tableToCsv(rows) {
     return ["Cours,P/L échéance,P/L date choisie,Rendement sur capital,Delta estimé", ...rows.map((row) => [row.price, row.expiration, row.selectedDate, row.returnOnCapital == null ? "" : row.returnOnCapital, row.delta].join(","))].join("\r\n");
   }
 
-  const api = { buildSeries, renderChart, buildTable, tableToCsv, money };
+  const api = { getScenarioPriceStep, buildSeries, renderChart, buildTable, selectRepresentativeRows, tableToCsv, money };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   globalScope.OptionsStrategyChart = api;
 })(typeof globalThis !== "undefined" ? globalThis : window);

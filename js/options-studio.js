@@ -105,7 +105,9 @@
     const notices = [...analysis.errors, analysis.warning, analysis.multiExpiration ? "Stratégie multiéchéance : les profits maximaux, pertes maximales et projections intermédiaires sont des estimations dépendantes des hypothèses." : ""].filter(Boolean);
     $("#analysisWarnings").innerHTML = notices.map((item) => `<p>${escapeHtml(item)}</p>`).join("");
     $("#strategyChart").innerHTML = Chart.renderChart(strategy, { analysis, comparison });
-    const rows = Chart.buildTable(strategy, analysis).sort((a, b) => ((a[tableSort.key] ?? -Infinity) - (b[tableSort.key] ?? -Infinity)) * tableSort.direction);
+    const completeRows = Chart.buildTable(strategy, analysis);
+    const rows = Chart.selectRepresentativeRows(completeRows, { maxRows: 10, currentPrice: strategy.underlyingPrice, breakEvens: analysis.breakEvens })
+      .sort((a, b) => ((a[tableSort.key] ?? -Infinity) - (b[tableSort.key] ?? -Infinity)) * tableSort.direction);
     $("#analysisTable").innerHTML = rows.map((row) => `<tr><td>${money(row.price)}</td><td class="${row.expiration >= 0 ? "positive" : "negative"}">${money(row.expiration)}</td><td class="${row.selectedDate >= 0 ? "positive" : "negative"}">${money(row.selectedDate)}</td><td>${percent(row.returnOnCapital)}</td><td>${row.delta.toFixed(3)}</td></tr>`).join("");
     $("#clearComparison").hidden = !comparison;
   }

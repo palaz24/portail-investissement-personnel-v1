@@ -6,8 +6,8 @@
   <meta name="description" content="Constructeur local et privé de stratégies d’options.">
   <meta name="color-scheme" content="dark light">
   <title>Options Strategy Studio — Mon Portefeuille</title>
-  <link rel="stylesheet" href="css/style.css?v=1.4.0-20260804">
-  <link rel="stylesheet" href="css/options-studio.css?v=1.4.0-20260804d">
+  <link rel="stylesheet" href="css/style.css?v=1.4.1-20260804a">
+  <link rel="stylesheet" href="css/options-studio.css?v=1.4.1-20260804a">
 </head>
 <body class="studio-body">
   <a class="skip-link" href="#mainContent">Aller au contenu principal</a>
@@ -19,7 +19,7 @@
       <a class="nav-item active" href="options-studio.html" aria-current="page"><span aria-hidden="true">⌁</span> Studio d’options</a>
     </nav>
     <div class="privacy-card"><span class="status-dot" aria-hidden="true"></span><div><strong>Données privées</strong><small>Conservées dans ce navigateur seulement</small></div></div>
-    <p class="version-label">Version 1.4.0 — Options Strategy Studio</p>
+    <p class="version-label">Version 1.4.1 — Options Strategy Studio — corrections</p>
   </aside>
 
   <div class="app-shell studio-shell">
@@ -67,7 +67,7 @@
         <section class="studio-center">
           <article class="panel studio-summary" aria-labelledby="summaryTitle"><div class="panel-heading"><div><p class="eyebrow">RÉSULTATS</p><h2 id="summaryTitle">Sommaire de la stratégie</h2></div><button class="button button-secondary compact" id="setComparison" type="button">Définir comme originale</button></div><div class="studio-metrics" id="strategyMetrics"></div><div id="comparisonMetrics" class="comparison-metrics" hidden></div><div id="analysisWarnings" class="studio-warnings" aria-live="polite"></div></article>
           <article class="panel chart-panel"><div class="panel-heading"><div><p class="eyebrow">PROJECTION</p><h2>Profit et perte</h2></div><button class="button button-ghost compact" id="clearComparison" type="button" hidden>Retirer la comparaison</button></div><div class="studio-sliders"><label>Date projetée <strong id="analysisDateLabel"></strong><input id="analysisDateSlider" type="range" min="0" max="730" step="1"></label><label>Volatilité générale <strong id="volatilityLabel"></strong><input id="volatilitySlider" type="range" min="0" max="200" step="1"></label></div><div id="strategyChart"></div></article>
-          <article class="panel"><div class="panel-heading"><div><p class="eyebrow">ANALYSE DÉTAILLÉE</p><h2>Tableau des résultats</h2></div><button class="button button-secondary compact" id="exportCsv" type="button">Exporter CSV</button></div><div class="table-wrap"><table><thead><tr><th><button type="button" data-table-sort="price">Cours</button></th><th><button type="button" data-table-sort="expiration">P/L échéance</button></th><th><button type="button" data-table-sort="selectedDate">P/L date choisie</button></th><th><button type="button" data-table-sort="returnOnCapital">Rendement</button></th><th><button type="button" data-table-sort="delta">Delta estimé</button></th></tr></thead><tbody id="analysisTable"></tbody></table></div></article>
+          <article class="panel"><div class="panel-heading"><div><p class="eyebrow">ANALYSE DÉTAILLÉE</p><h2>Tableau des résultats</h2><p class="studio-table-note">10 points représentatifs affichés. L’export CSV conserve l’analyse complète.</p></div><button class="button button-secondary compact" id="exportCsv" type="button">Exporter CSV</button></div><div class="table-wrap"><table><thead><tr><th><button type="button" data-table-sort="price">Cours</button></th><th><button type="button" data-table-sort="expiration">P/L échéance</button></th><th><button type="button" data-table-sort="selectedDate">P/L date choisie</button></th><th><button type="button" data-table-sort="returnOnCapital">Rendement</button></th><th><button type="button" data-table-sort="delta">Delta estimé</button></th></tr></thead><tbody id="analysisTable"></tbody></table></div></article>
         </section>
 
         <aside class="panel studio-legs" aria-labelledby="legsTitle"><div class="panel-heading"><div><p class="eyebrow">COMPOSITION</p><h2 id="legsTitle">Jambes</h2></div><span class="count-badge" id="legCount">0</span></div><div class="button-row studio-add-buttons"><button class="button button-secondary compact" data-add-leg="stock" type="button">+ Action</button><button class="button button-secondary compact" data-add-leg="call" type="button">+ Call</button><button class="button button-secondary compact" data-add-leg="put" type="button">+ Put</button></div><div id="legsList" class="legs-list"></div></aside>
@@ -77,9 +77,9 @@
 
   <dialog id="shareDialog" class="studio-dialog"><form method="dialog"><h2>Partager sans données privées</h2><p>Le lien contient seulement les hypothèses publiques de la stratégie. Les notes et les prix de marché saisis sont exclus.</p><textarea id="sharePreview" readonly rows="6"></textarea><p id="shareLength" class="muted"></p><div class="button-row"><button class="button button-primary" id="copyShare" type="button">Copier le lien</button><button class="button button-secondary" value="cancel">Fermer</button></div></form></dialog>
 
-  <script src="js/options-engine.js?v=1.4.0-20260804d"></script>
-  <script src="js/options-storage.js?v=1.4.0-20260804d"></script>
-  <script src="js/options-chart.js?v=1.4.0-20260804d"></script>
-  <script src="js/options-studio.js?v=1.4.0-20260804d"></script>
+  <script src="js/options-engine.js?v=1.4.1-20260804a"></script>
+  <script src="js/options-storage.js?v=1.4.1-20260804a"></script>
+  <script src="js/options-chart.js?v=1.4.1-20260804a"></script>
+  <script src="js/options-studio.js?v=1.4.1-20260804a"></script>
 </body>
 </html>
