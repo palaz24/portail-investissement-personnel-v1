@@ -1,4 +1,11 @@
-# Portail d’investissement personnel V1.4.0
+# Portail d’investissement personnel V1.4.1
+
+## Corrections V1.4.1
+
+- Pour Ford (`F` ou `f`), les points de scénarios du graphique, du tableau complet et du CSV avancent maintenant par pas exacts de 0,50 $.
+- Le cours réel, les strikes, les primes, les commissions, les transactions, les seuils de rentabilité et tous les résultats financiers conservent leur précision originale.
+- Le tableau « Analyse détaillée » affiche au plus 10 points représentatifs. Le calcul complet et l’export CSV ne sont pas réduits.
+- Les autres symboles conservent leur comportement V1.4.0.
 
 ## Nouveautés V1.4.0
 

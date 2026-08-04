@@ -1,4 +1,10 @@
-# Rapport final — Portail d’investissement personnel V1.4.0
+# Rapport final — Portail d’investissement personnel V1.4.1
+
+## Correctifs V1.4.1 — scénarios Ford et tableau détaillé
+
+La V1.4.1 impose un pas exact de 0,50 $ uniquement aux prix de scénarios Ford générés pour le graphique, le tableau complet et le CSV. Le cours réel demeure une ligne exacte indépendante; les strikes, primes, commissions, transactions, seuils de rentabilité et résultats financiers ne sont jamais arrondis par ce correctif.
+
+Le tableau visible « Analyse détaillée — Tableau des résultats » présente au plus 10 points représentatifs, incluant les bornes, le voisinage du cours actuel et celui des seuils lorsque possible. Le moteur conserve tous les points et le CSV exporte toujours l’analyse complète. Les 243 tests antérieurs et les 35 nouveaux tests réussissent, pour un total de 278 sur 278. Le Worker demeure inchangé.
 
 ## Évolution V1.4.0 — Options Strategy Studio
 
