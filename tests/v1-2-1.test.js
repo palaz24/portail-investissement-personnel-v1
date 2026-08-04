@@ -635,7 +635,7 @@
       restored.value.transactions[0].fees === 2 && option.bookPrice === 0.16,
       "Le prix comptable restauré est incorrect",
     );
-    assert(Storage.APP_VERSION === "1.3.0", "La version de sauvegarde attendue a changé");
+    assert(Storage.APP_VERSION === "1.4.0", "La version de sauvegarde attendue a changé");
   });
 
   test(146, "le tableau mobile demeure contenu dans un défilement horizontal propre", () => {
