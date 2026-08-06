@@ -1,10 +1,18 @@
-# Résultats des tests — Portail d’investissement personnel V1.4.1
+# Résultats des tests — Portail d’investissement personnel V1.4.2
 
 Date de validation : 4 août 2026
 
 ## Résultat final
 
-**278 tests réussis sur 278.**
+**308 tests réussis sur 308.**
+
+- Tests V1.4.1 et antérieurs conservés : **278 / 278**.
+- Nouveaux tests V1.4.2 : **30 / 30**.
+- Tests du portail dans le navigateur : **291 / 291**.
+- Tests du Worker inchangé : **17 / 17**.
+- Erreurs JavaScript observées : **0**.
+
+## Détail historique V1.4.1
 
 - Tests officiels V1.4.0 conservés : **243 / 243**.
 - Nouveaux tests V1.4.1 : **35 / 35**.

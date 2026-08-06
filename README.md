@@ -1,4 +1,11 @@
-# Portail d’investissement personnel V1.4.1
+# Portail d’investissement personnel V1.4.2
+
+## Corrections V1.4.2
+
+- La section « Projection — Profit et perte » utilise maintenant explicitement les couleurs des thèmes pour ses textes SVG, ses axes, sa légende, ses seuils et son info-bulle.
+- Le tableau visible de l’analyse détaillée présente toujours les mêmes points représentatifs, mais en ordre décroissant par défaut : le prix le plus élevé apparaît en premier.
+- Un changement de modèle, de stratégie enregistrée, de symbole ou de plage rétablit cet ordre décroissant. Le tri manuel demeure disponible.
+- L’export CSV reste complet et conserve son ordre de calcul antérieur.
 
 ## Corrections V1.4.1
 

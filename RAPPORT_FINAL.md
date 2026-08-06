@@ -1,4 +1,10 @@
-# Rapport final — Portail d’investissement personnel V1.4.1
+# Rapport final — Portail d’investissement personnel V1.4.2
+
+## Correctifs V1.4.2 — contraste de la Projection et tri décroissant
+
+Les textes SVG du graphique, les titres, les axes, la légende, le cours actuel, les seuils et l’info-bulle utilisent désormais les variables des thèmes clair et sombre. Le problème de nombres d’axes noirs sur fond sombre est supprimé. Les mesures finales de contraste des principaux textes vont de 4,76:1 à 15,12:1; le petit titre « Projection » atteint 4,78:1 en mode sombre et 5,53:1 en mode clair.
+
+Le tableau visible conserve au plus 10 points représentatifs, mais les affiche par défaut du prix le plus élevé au prix le plus bas. Les changements de stratégie, de symbole et de plage rétablissent cet ordre. Le tri manuel demeure fonctionnel et le CSV conserve tous les points calculés. Les 278 tests antérieurs et les 30 nouveaux tests réussissent, pour un total de 308 sur 308. Le moteur financier et le Worker sont inchangés.
 
 ## Correctifs V1.4.1 — scénarios Ford et tableau détaillé
 
