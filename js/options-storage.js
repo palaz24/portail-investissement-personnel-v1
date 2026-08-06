@@ -6,6 +6,7 @@
   const SCHEMA = "options-strategy-studio";
   const VERSION = 1;
   const MAX_IMPORT_LENGTH = 500000;
+  const JSON_MIME_TYPE = "application/json";
 
   function clone(value) {
     return JSON.parse(JSON.stringify(value));
@@ -66,8 +67,47 @@
     return save(state, storage);
   }
 
+  function exportStrategy(strategy) {
+    const normalized = Engine.normalizeStrategy(strategy);
+    return {
+      ...normalized,
+      legs: normalized.legs.map(({ notes, ...leg }) => leg),
+    };
+  }
+
   function exportDocument(strategy, exportedAt = new Date().toISOString()) {
-    return { schema: SCHEMA, version: VERSION, exportedAt, strategy: Engine.normalizeStrategy(strategy) };
+    return { schema: SCHEMA, version: VERSION, exportedAt, strategy: exportStrategy(strategy) };
+  }
+
+  function serializeExportDocument(strategy, exportedAt = new Date().toISOString()) {
+    return JSON.stringify(exportDocument(strategy, exportedAt), null, 2);
+  }
+
+  function safeFilenamePart(value, fallback = "strategy") {
+    const cleaned = String(value ?? "")
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-")
+      .replace(/[^A-Za-z0-9._-]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^[.\s-]+|[.\s-]+$/g, "")
+      .slice(0, 60);
+    return cleaned || fallback;
+  }
+
+  function createExportFilename(strategy, date = new Date()) {
+    const safeDate = date instanceof Date && Number.isFinite(date.getTime()) ? date : new Date();
+    const symbol = safeFilenamePart(strategy?.symbol, "strategy").toUpperCase();
+    return `options-strategy-${symbol}-${safeDate.toISOString().slice(0, 10)}.json`;
+  }
+
+  function createExportArtifact(strategy, date = new Date()) {
+    const safeDate = date instanceof Date && Number.isFinite(date.getTime()) ? date : new Date();
+    return {
+      filename: createExportFilename(strategy, safeDate),
+      type: JSON_MIME_TYPE,
+      content: serializeExportDocument(strategy, safeDate.toISOString()),
+    };
   }
 
   function dangerousObject(value, depth = 0) {
@@ -183,6 +223,9 @@
     saveStrategy,
     deleteStrategy,
     exportDocument,
+    serializeExportDocument,
+    createExportFilename,
+    createExportArtifact,
     importDocument,
     publicStrategy,
     createShareFragment,

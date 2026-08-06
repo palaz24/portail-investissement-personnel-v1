@@ -48,7 +48,13 @@
   function percent(value) { return value == null || !Number.isFinite(value) ? "—" : `${(value * 100).toFixed(2)} %`; }
   function download(name, content, type) {
     const url = URL.createObjectURL(new Blob([content], { type }));
-    const link = document.createElement("a"); link.href = url; link.download = name; link.click(); URL.revokeObjectURL(url);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   }
   function setTheme(theme) {
     document.documentElement.dataset.theme = theme;
@@ -185,7 +191,7 @@
     $("#loadSavedStrategy").addEventListener("click", () => { const saved = Store.load().strategies.find((item) => item.id === $("#savedStrategySelect").value); if (!saved) return; if (strategy.legs.length && !confirm(`Ouvrir « ${saved.name} » et remplacer la stratégie affichée?`)) return; strategy = saved; comparison = null; resetTableSort(); syncForm(); renderLegs(); renderAnalysis(); });
     $("#duplicateStrategy").addEventListener("click", () => { strategy = Engine.normalizeStrategy({ ...strategy, id: "", name: `${strategy.name} — copie` }); syncForm(); renderLegs(); renderAnalysis(); });
     $("#resetStrategy").addEventListener("click", () => { if (confirm("Réinitialiser cette stratégie?")) { strategy = Engine.createTemplate("custom", querySeed()); comparison = null; resetTableSort(); syncForm(); renderLegs(); renderAnalysis(); } });
-    $("#exportJson").addEventListener("click", () => download(`${strategy.symbol}-strategie-options.json`, Store.exportDocument(strategy), "application/json"));
+    $("#exportJson").addEventListener("click", () => { const artifact = Store.createExportArtifact(strategy); download(artifact.filename, artifact.content, artifact.type); });
     $("#importJson").addEventListener("click", () => $("#importFile").click()); $("#importFile").addEventListener("change", (event) => event.target.files[0] && importJson(event.target.files[0]));
     $("#exportCsv").addEventListener("click", () => download(`${strategy.symbol}-analyse-options.csv`, `\ufeff${Chart.tableToCsv(Chart.buildTable(strategy))}`, "text/csv;charset=utf-8"));
     $("#setComparison").addEventListener("click", () => { comparison = Store.clone(strategy); $("#setComparison").textContent = "Originale mémorisée"; renderAnalysis(); });
