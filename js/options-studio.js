@@ -19,7 +19,9 @@
   const today = new Date().toISOString().slice(0, 10);
   let comparison = null;
   let renderTimer = null;
-  let tableSort = { key: "price", direction: 1 };
+  let tableSort = { key: "price", direction: -1 };
+
+  function resetTableSort() { tableSort = { key: "price", direction: -1 }; }
 
   function querySeed() {
     const params = new URLSearchParams(location.search);
@@ -106,8 +108,7 @@
     $("#analysisWarnings").innerHTML = notices.map((item) => `<p>${escapeHtml(item)}</p>`).join("");
     $("#strategyChart").innerHTML = Chart.renderChart(strategy, { analysis, comparison });
     const completeRows = Chart.buildTable(strategy, analysis);
-    const rows = Chart.selectRepresentativeRows(completeRows, { maxRows: 10, currentPrice: strategy.underlyingPrice, breakEvens: analysis.breakEvens })
-      .sort((a, b) => ((a[tableSort.key] ?? -Infinity) - (b[tableSort.key] ?? -Infinity)) * tableSort.direction);
+    const rows = Chart.sortRows(Chart.selectRepresentativeRows(completeRows, { maxRows: 10, currentPrice: strategy.underlyingPrice, breakEvens: analysis.breakEvens }), tableSort.key, tableSort.direction);
     $("#analysisTable").innerHTML = rows.map((row) => `<tr><td>${money(row.price)}</td><td class="${row.expiration >= 0 ? "positive" : "negative"}">${money(row.expiration)}</td><td class="${row.selectedDate >= 0 ? "positive" : "negative"}">${money(row.selectedDate)}</td><td>${percent(row.returnOnCapital)}</td><td>${row.delta.toFixed(3)}</td></tr>`).join("");
     $("#clearComparison").hidden = !comparison;
   }
@@ -117,9 +118,10 @@
     renderTimer = setTimeout(() => { if (full) renderLegs(); renderAnalysis(); }, 120);
   }
 
-  function readStrategyForm() {
+  function readStrategyForm(event) {
     const data = new FormData($("#strategyForm"));
     const value = Object.fromEntries(data.entries());
+    if (["symbol", "rangeMode", "rangeMin", "rangeMax"].includes(event?.target?.name)) resetTableSort();
     strategy = Engine.normalizeStrategy({ ...strategy, ...value, riskFreeRate: Number(value.riskFreeRatePercent) / 100, dividendYield: Number(value.dividendYieldPercent) / 100, impliedVolatility: Number(value.impliedVolatilityPercent) / 100 });
     scheduleRender();
   }
@@ -154,12 +156,12 @@
 
   function loadTemplate() {
     if (strategy.legs.length && !confirm("Remplacer les jambes actuelles par ce modèle?")) return;
-    strategy = Engine.createTemplate($("#templateSelect").value, strategy); comparison = null; syncForm(); renderLegs(); renderAnalysis();
+    strategy = Engine.createTemplate($("#templateSelect").value, strategy); comparison = null; resetTableSort(); syncForm(); renderLegs(); renderAnalysis();
   }
 
   function importJson(file) {
     const reader = new FileReader();
-    reader.onload = () => { const result = Store.importDocument(reader.result); if (!result.valid) { alert(result.errors.join("\n")); return; } if (!confirm(`Importer « ${result.value.name} » et remplacer la stratégie affichée?`)) return; strategy = result.value; comparison = null; syncForm(); renderLegs(); renderAnalysis(); };
+    reader.onload = () => { const result = Store.importDocument(reader.result); if (!result.valid) { alert(result.errors.join("\n")); return; } if (!confirm(`Importer « ${result.value.name} » et remplacer la stratégie affichée?`)) return; strategy = result.value; comparison = null; resetTableSort(); syncForm(); renderLegs(); renderAnalysis(); };
     reader.readAsText(file);
   }
 
@@ -180,9 +182,9 @@
     $$('[data-add-leg]').forEach((button) => button.addEventListener("click", () => addLeg(button.dataset.addLeg)));
     $("#loadTemplate").addEventListener("click", loadTemplate);
     $("#saveStrategy").addEventListener("click", () => { Store.saveStrategy(strategy); renderSavedStrategies(); $("#saveState").textContent = "● Stratégie enregistrée localement"; });
-    $("#loadSavedStrategy").addEventListener("click", () => { const saved = Store.load().strategies.find((item) => item.id === $("#savedStrategySelect").value); if (!saved) return; if (strategy.legs.length && !confirm(`Ouvrir « ${saved.name} » et remplacer la stratégie affichée?`)) return; strategy = saved; comparison = null; syncForm(); renderLegs(); renderAnalysis(); });
+    $("#loadSavedStrategy").addEventListener("click", () => { const saved = Store.load().strategies.find((item) => item.id === $("#savedStrategySelect").value); if (!saved) return; if (strategy.legs.length && !confirm(`Ouvrir « ${saved.name} » et remplacer la stratégie affichée?`)) return; strategy = saved; comparison = null; resetTableSort(); syncForm(); renderLegs(); renderAnalysis(); });
     $("#duplicateStrategy").addEventListener("click", () => { strategy = Engine.normalizeStrategy({ ...strategy, id: "", name: `${strategy.name} — copie` }); syncForm(); renderLegs(); renderAnalysis(); });
-    $("#resetStrategy").addEventListener("click", () => { if (confirm("Réinitialiser cette stratégie?")) { strategy = Engine.createTemplate("custom", querySeed()); comparison = null; syncForm(); renderLegs(); renderAnalysis(); } });
+    $("#resetStrategy").addEventListener("click", () => { if (confirm("Réinitialiser cette stratégie?")) { strategy = Engine.createTemplate("custom", querySeed()); comparison = null; resetTableSort(); syncForm(); renderLegs(); renderAnalysis(); } });
     $("#exportJson").addEventListener("click", () => download(`${strategy.symbol}-strategie-options.json`, Store.exportDocument(strategy), "application/json"));
     $("#importJson").addEventListener("click", () => $("#importFile").click()); $("#importFile").addEventListener("change", (event) => event.target.files[0] && importJson(event.target.files[0]));
     $("#exportCsv").addEventListener("click", () => download(`${strategy.symbol}-analyse-options.csv`, `\ufeff${Chart.tableToCsv(Chart.buildTable(strategy))}`, "text/csv;charset=utf-8"));

@@ -134,11 +134,16 @@
     return [...selected].sort((a, b) => a - b).slice(0, maxRows).map((index) => rows[index]).sort((a, b) => a.price - b.price);
   }
 
+  function sortRows(rowsInput, key = "price", direction = -1) {
+    const multiplier = Number(direction) < 0 ? -1 : 1;
+    return [...(rowsInput || [])].sort((a, b) => ((a[key] ?? -Infinity) - (b[key] ?? -Infinity)) * multiplier);
+  }
+
   function tableToCsv(rows) {
     return ["Cours,P/L échéance,P/L date choisie,Rendement sur capital,Delta estimé", ...rows.map((row) => [row.price, row.expiration, row.selectedDate, row.returnOnCapital == null ? "" : row.returnOnCapital, row.delta].join(","))].join("\r\n");
   }
 
-  const api = { getScenarioPriceStep, buildSeries, renderChart, buildTable, selectRepresentativeRows, tableToCsv, money };
+  const api = { getScenarioPriceStep, buildSeries, renderChart, buildTable, selectRepresentativeRows, sortRows, tableToCsv, money };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   globalScope.OptionsStrategyChart = api;
 })(typeof globalThis !== "undefined" ? globalThis : window);
